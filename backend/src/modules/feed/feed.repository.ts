@@ -73,4 +73,28 @@ export async function createDraftFeedPost(args: CreateDraftArgs): Promise<FeedPo
   return rows[0];
 }
 
+export async function getFeedPostById(feedPostId: string): Promise<FeedPost | null> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('id', `eq.${feedPostId}`);
+  qs.set('limit', '1');
+
+  const rows = await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, { method: 'GET' });
+  return rows[0] ?? null;
+}
+
+export async function updateFeedPostStatus(feedPostId: string, status: FeedPostStatus): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ status }),
+  });
+}
+
 
