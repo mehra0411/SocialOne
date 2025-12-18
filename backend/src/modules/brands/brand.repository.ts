@@ -94,4 +94,19 @@ export async function getBrandById(brandId: string, userId: string): Promise<Bra
   return rows[0] ?? null;
 }
 
+/**
+ * INTERNAL / WORKER USE ONLY
+ *
+ * Service-role query without user scoping. Do NOT expose from controllers.
+ */
+export async function getBrandByIdUnsafe(brandId: string): Promise<Brand | null> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('id', `eq.${brandId}`);
+  qs.set('limit', '1');
+
+  const rows = await supabaseRest<Brand[]>(`/rest/v1/brands?${qs.toString()}`, { method: 'GET' });
+  return rows[0] ?? null;
+}
+
 
