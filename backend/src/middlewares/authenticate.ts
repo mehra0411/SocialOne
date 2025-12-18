@@ -6,7 +6,7 @@ type UserRole = 'user' | 'super_admin';
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: string; role: UserRole };
+      user?: { id: string; role: 'user' | 'super_admin' };
     }
   }
 }
