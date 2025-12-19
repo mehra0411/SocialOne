@@ -6,7 +6,9 @@ export async function requireBrandAccess(req: Request, res: Response, next: Next
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const brandId = (req.params as { brandId?: string } | undefined)?.brandId;
+    const brandId =
+      (req.params as { brandId?: string } | undefined)?.brandId ??
+      ((req.body as { brandId?: string } | undefined)?.brandId ?? undefined);
     if (!brandId) return res.status(400).json({ error: 'Missing brandId' });
 
     const brand = await getBrandById(brandId, userId);

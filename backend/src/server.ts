@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 app.use('/api/admin', adminRoutes);
-app.use('/feed', feedRoutes);
+app.use('/api/feed', feedRoutes);
 app.use('/api/instagram', instagramRoutes);
 app.use('/reels', reelsRoutes);
 
