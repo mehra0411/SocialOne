@@ -8,7 +8,7 @@ import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
 
 function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -51,7 +51,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
                 <button
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-50"
-                  onClick={logout}
+                  onClick={() => {
+                    void signOut();
+                  }}
                 >
                   Logout
                 </button>
@@ -67,12 +69,15 @@ function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+        <Route
+          path="/"
+          element={<Navigate to={loading ? '/login' : user ? '/dashboard' : '/login'} replace />}
+        />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
