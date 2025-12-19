@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { buttonClassName } from '../ui/button';
 
 type AdminUser = {
   id: string;
@@ -88,7 +89,7 @@ export function AdminPage() {
         </div>
 
         <button
-          className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:opacity-60"
+          className={buttonClassName({ variant: 'secondary' })}
           onClick={() => void refresh()}
           disabled={loading}
         >
@@ -153,7 +154,7 @@ export function AdminPage() {
                     <td className="py-3 pr-4 text-xs text-zinc-600">{formatDate(u.created_at)}</td>
                     <td className="py-3 pr-4">
                       <button
-                        className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+                        className={buttonClassName({ variant: 'primary', size: 'sm', className: 'rounded-lg' })}
                         disabled={!isDirty || isSaving}
                         onClick={async () => {
                           setError(null);

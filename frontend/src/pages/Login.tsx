@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/auth';
+import { buttonClassName } from '../ui/button';
 
 export function LoginPage() {
   const { signInWithPassword } = useAuth();
@@ -60,7 +61,7 @@ export function LoginPage() {
         {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
 
         <button
-          className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+          className={buttonClassName({ variant: 'primary' })}
           type="submit"
           disabled={submitting}
         >

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { uploadImageAndGetPublicUrl } from '../lib/storage';
+import { buttonClassName } from '../ui/button';
 
 type BrandOption = { id: string; name: string };
 type FeedPost = {
@@ -159,7 +160,7 @@ export function DashboardPage() {
                   onChange={(e) => setNewBrandId(e.target.value)}
                 />
                 <button
-                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+                  className={buttonClassName({ variant: 'primary' })}
                   disabled={!newBrandName.trim() || !newBrandId.trim()}
                   onClick={() => {
                     const next: BrandOption = { name: newBrandName.trim(), id: newBrandId.trim() };
@@ -201,7 +202,7 @@ export function DashboardPage() {
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+                className={buttonClassName({ variant: 'primary' })}
                 disabled={!selectedBrandId || generating}
                 onClick={async () => {
                   setError(null);
@@ -229,7 +230,7 @@ export function DashboardPage() {
               </button>
 
               <button
-                className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:opacity-60"
+                className={buttonClassName({ variant: 'secondary' })}
                 disabled={!draft || draft.status !== 'draft' || publishing}
                 onClick={async () => {
                   if (!draft) return;
@@ -331,7 +332,7 @@ export function DashboardPage() {
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
-                className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:opacity-60"
+                className={buttonClassName({ variant: 'secondary' })}
                 disabled={!reelFile || reelUploading}
                 onClick={async () => {
                   if (!reelFile) return;
@@ -351,7 +352,7 @@ export function DashboardPage() {
               </button>
 
               <button
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+                className={buttonClassName({ variant: 'primary' })}
                 disabled={!selectedBrandId || !reelUploadUrl || reelGenerating}
                 onClick={async () => {
                   setReelError(null);
@@ -399,7 +400,7 @@ export function DashboardPage() {
             </div>
 
             <button
-              className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:opacity-60"
+              className={buttonClassName({ variant: 'secondary' })}
               disabled={!reelId || reel?.status !== 'ready' || reelPublishing}
               onClick={async () => {
                 if (!reelId) return;

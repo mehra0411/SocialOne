@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/auth';
 import { AdminRoute } from './routes/AdminRoute';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -6,6 +6,7 @@ import { AdminPage } from './pages/Admin';
 import { DashboardPage } from './pages/Dashboard';
 import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
+import { buttonClassName } from './ui/button';
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -21,23 +22,57 @@ function AppShell({ children }: { children: React.ReactNode }) {
             <nav className="flex items-center gap-3 text-sm text-zinc-600">
               {user ? (
                 <>
-                  <Link className="hover:text-zinc-900" to="/dashboard">
+                  <NavLink
+                    to="/dashboard"
+                    className={({ isActive }) =>
+                      [
+                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                        isActive
+                          ? 'bg-[#EEF2FF] text-[#4F46E5]'
+                          : 'text-zinc-600 hover:text-[#4F46E5]',
+                      ].join(' ')
+                    }
+                  >
                     Dashboard
-                  </Link>
+                  </NavLink>
                   {user.role === 'super_admin' ? (
-                    <Link className="hover:text-zinc-900" to="/admin">
+                    <NavLink
+                      to="/admin"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                        ].join(' ')
+                      }
+                    >
                       Admin
-                    </Link>
+                    </NavLink>
                   ) : null}
                 </>
               ) : (
                 <>
-                  <Link className="hover:text-zinc-900" to="/login">
+                  <NavLink
+                    to="/login"
+                    className={({ isActive }) =>
+                      [
+                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                      ].join(' ')
+                    }
+                  >
                     Login
-                  </Link>
-                  <Link className="hover:text-zinc-900" to="/signup">
+                  </NavLink>
+                  <NavLink
+                    to="/signup"
+                    className={({ isActive }) =>
+                      [
+                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                      ].join(' ')
+                    }
+                  >
                     Signup
-                  </Link>
+                  </NavLink>
                 </>
               )}
             </nav>
@@ -50,7 +85,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
                   {user.role}
                 </span>
                 <button
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-50"
+                  className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg' })}
                   onClick={() => {
                     void signOut();
                   }}
