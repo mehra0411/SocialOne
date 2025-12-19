@@ -1,13 +1,18 @@
 import { Router } from 'express';
+import { instagramOAuthStart } from './instagram.controller';
 import { authenticate } from '../../middlewares/authenticate';
 import { requireActiveAccount } from '../../middlewares/requireActiveAccount';
-import { instagramOAuthStart } from './instagram.controller';
+import { requireBrandAccess } from '../../middlewares/requireBrandAccess';
+import { asHandler } from '../../utils/handler';
 
 const router = Router();
 
-// POST /api/instagram/oauth/start
-router.post('/oauth/start', authenticate, requireActiveAccount, instagramOAuthStart);
+router.post(
+  '/oauth/start',
+  authenticate,
+  requireActiveAccount,
+  requireBrandAccess,
+  asHandler(instagramOAuthStart)
+);
 
 export default router;
-
-

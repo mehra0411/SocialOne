@@ -1,5 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { randomBytes } from 'crypto';
+import { AuthenticatedRequest } from '../../types/auth';
 import { getBrandById } from '../brands/brand.repository';
 
 type OAuthStartBody = {
@@ -13,16 +14,15 @@ function requiredEnv(name: string): string {
 }
 
 function buildMetaOAuthUrl(state: string): string {
-  // Keep config entirely server-side; only the resulting URL is returned.
   const clientId = requiredEnv('META_APP_ID');
   const redirectUri = requiredEnv('META_REDIRECT_URI');
 
   const dialogBase =
-    process.env.META_OAUTH_DIALOG_URL?.trim() || 'https://www.facebook.com/v21.0/dialog/oauth';
+    process.env.META_OAUTH_DIALOG_URL?.trim() ||
+    'https://www.facebook.com/v21.0/dialog/oauth';
 
   const scope =
     process.env.META_OAUTH_SCOPES?.trim() ||
-    // Safe default; can be overridden via env to match your Meta app config.
     'instagram_basic';
 
   const url = new URL(dialogBase);
@@ -35,28 +35,35 @@ function buildMetaOAuthUrl(state: string): string {
   return url.toString();
 }
 
-export async function instagramOAuthStart(req: Request, res: Response) {
+/**
+ * POST /api/instagram/oauth/start
+ */
+export async function instagramOAuthStart(
+  req: AuthenticatedRequest,
+  res: Response
+) {
   try {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const userId = req.user.id;
 
     const body = (req.body ?? {}) as OAuthStartBody;
     const brandId = body.brandId;
-    if (!brandId) return res.status(400).json({ error: 'Missing brandId' });
 
-    // Enforce ownership: user can only start OAuth for their own brand.
+    if (!brandId) {
+      return res.status(400).json({ error: 'Missing brandId' });
+    }
+
+    // Ensure brand belongs to this user
     const brand = await getBrandById(brandId, userId);
-    if (!brand) return res.status(403).json({ error: 'Forbidden' });
+    if (!brand) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
-    // Embed brandId into state so the callback can correlate without storing tokens here.
     const nonce = randomBytes(16).toString('hex');
     const state = `${brandId}:${nonce}`;
 
     const redirectUrl = buildMetaOAuthUrl(state);
     return res.json({ redirectUrl });
-  } catch {
+  } catch (err) {
     return res.status(500).json({ error: 'Failed to start OAuth' });
   }
 }
-
-

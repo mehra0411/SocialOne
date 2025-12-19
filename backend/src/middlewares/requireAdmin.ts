@@ -1,14 +1,15 @@
-import type { NextFunction, Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const role = req.user?.role;
-  if (!role) return res.status(401).json({ error: 'Unauthorized' });
+export function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const user = (req as any).user;
 
-  if (role !== 'super_admin') {
-    return res.status(403).json({ error: 'Forbidden' });
+  if (!user || user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
   }
 
-  return next();
+  next();
 }
-
-

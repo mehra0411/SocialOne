@@ -1,81 +1,42 @@
-import type { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthenticatedRequest } from '../../types/auth';
+import {
+  generateReelDraft,
+  publishReel,
+} from './reels.service';
 
-import { runAiReelWorker } from '../../workers/ai-reel.worker';
-import { createReel, type Reel } from './reels.repository';
-import { publishReel } from './reels.publish.service';
+export async function reelsGenerate(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const userId = req.user.id;
+  const { brandId, input_image_url } = req.body;
 
-type GenerateBody = {
-  brandId?: string;
-  inputImageUrl?: string;
-};
-
-type PublishBody = {
-  brandId?: string;
-  reelId?: string;
-};
-
-export async function reelsGenerate(req: Request, res: Response) {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const body = (req.body ?? {}) as GenerateBody;
-
-    if (!body.brandId) {
-      return res.status(400).json({ error: 'Missing brandId' });
-    }
-
-    if (!body.inputImageUrl || typeof body.inputImageUrl !== 'string') {
-      return res.status(400).json({ error: 'Invalid inputImageUrl' });
-    }
-
-    // Create reel record
-    const reel: Reel = await createReel({
-      brandId: body.brandId,
-      inputImageUrl: body.inputImageUrl,
-      generationMethod: 'ai',
+  if (!brandId || !input_image_url) {
+    return res.status(400).json({
+      error: 'brandId and input_image_url are required',
     });
-
-    // Trigger AI worker (fire-and-forget)
-    runAiReelWorker(reel.id).catch(() => {
-      // Worker handles its own failure state
-    });
-
-    return res.json({
-      success: true,
-      data: {
-        reelId: reel.id,
-        status: reel.status,
-      },
-    });
-  } catch {
-    return res.status(500).json({ error: 'Failed to generate reel' });
   }
+
+  const result = await generateReelDraft(userId, {
+    brandId,
+    input_image_url,
+  });
+
+  return res.json(result);
 }
 
-export async function reelsPublish(req: Request, res: Response) {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+export async function reelsPublish(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const userId = req.user.id;
+  const { reelId } = req.body;
 
-    const body = (req.body ?? {}) as PublishBody;
-
-    // Required for requireBrandAccess middleware
-    if (!body.brandId) {
-      return res.status(400).json({ error: 'Missing brandId' });
-    }
-
-    if (!body.reelId) {
-      return res.status(400).json({ error: 'Missing reelId' });
-    }
-
-    const result = await publishReel(userId, body.reelId);
-    return res.json({ success: true, data: result });
-  } catch {
-    return res.status(500).json({ error: 'Failed to publish reel' });
+  if (!reelId) {
+    return res.status(400).json({ error: 'reelId is required' });
   }
+
+  const result = await publishReel(userId, reelId);
+  return res.json(result);
 }

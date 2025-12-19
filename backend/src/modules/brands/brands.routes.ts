@@ -1,26 +1,29 @@
 import { Router } from 'express';
-import { reelsGenerate, reelsPublish } from './reels.controller';
+import { brandsList, brandsCreate } from './brands.controller';
 import { authenticate } from '../../middlewares/authenticate';
 import { requireActiveAccount } from '../../middlewares/requireActiveAccount';
-import { requireBrandAccess } from '../../middlewares/requireBrandAccess';
 import { asHandler } from '../../types/asHandler';
 
 const router = Router();
 
-router.post(
-  '/generate',
+/**
+ * GET /api/brands
+ */
+router.get(
+  '/',
   authenticate,
   requireActiveAccount,
-  requireBrandAccess,
-  asHandler(reelsGenerate)
+  asHandler(brandsList)
 );
 
+/**
+ * POST /api/brands
+ */
 router.post(
-  '/publish',
+  '/',
   authenticate,
   requireActiveAccount,
-  requireBrandAccess,
-  asHandler(reelsPublish)
+  asHandler(brandsCreate)
 );
 
 export default router;

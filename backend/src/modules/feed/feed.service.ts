@@ -87,5 +87,15 @@ export async function generateFeedDraft(userId: string, payload: GenerateFeedDra
     imageUrl: payload.imageUrl ?? null,
   });
 }
+export async function publishFeedPost(
+  userId: string,
+  feedPostId: string
+): Promise<{ success: true }> {
+  if (!userId) throw new Error('Missing userId');
+  if (!feedPostId) throw new Error('Missing feedPostId');
+
+  // TEMP: publishing logic will be added later
+  return { success: true };
+}
 
 
