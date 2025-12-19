@@ -93,4 +93,32 @@ export async function setAiReelResult(args: {
   });
 }
 
+export async function createReel(args: {
+  brandId: string;
+  inputImageUrl: string;
+  generationMethod: ReelGenerationMethod;
+}): Promise<Reel> {
+  const { randomUUID } = await import('crypto');
+
+  const row = {
+    id: randomUUID(),
+    brand_id: args.brandId,
+    input_image_url: args.inputImageUrl,
+    generation_method: args.generationMethod,
+    status: 'draft' as const,
+  };
+
+  const rows = await supabaseRest<Reel[]>('/rest/v1/reels?select=*', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(row),
+  });
+
+  if (!rows.length) throw new Error('Failed to create reel');
+  return rows[0];
+}
+
 

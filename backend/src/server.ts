@@ -11,6 +11,6 @@ app.use(express.json());
 app.use('/api/admin', adminRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/instagram', instagramRoutes);
-app.use('/reels', reelsRoutes);
+app.use('/api/reels', reelsRoutes);
 
 export default app;

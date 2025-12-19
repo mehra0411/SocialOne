@@ -1,18 +1,16 @@
 import { Router } from 'express';
 import { authenticate } from '../../middlewares/authenticate';
 import { requireActiveAccount } from '../../middlewares/requireActiveAccount';
+import { requireBrandAccess } from '../../middlewares/requireBrandAccess';
+import { reelsGenerate, reelsPublish } from './reels.controller';
 
 const router = Router();
 
-// Reel generation
-router.post('/generate', authenticate, requireActiveAccount, (_req, res) => {
-  return res.status(501).json({ error: 'Not implemented' });
-});
+// POST /api/reels/generate
+router.post('/generate', authenticate, requireActiveAccount, requireBrandAccess, reelsGenerate);
 
-// Reel publishing
-router.post('/publish', authenticate, requireActiveAccount, (_req, res) => {
-  return res.status(501).json({ error: 'Not implemented' });
-});
+// POST /api/reels/publish
+router.post('/publish', authenticate, requireActiveAccount, requireBrandAccess, reelsPublish);
 
 export default router;
 
