@@ -3,7 +3,10 @@ import { useAuth } from './auth/auth';
 import { AdminRoute } from './routes/AdminRoute';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AdminPage } from './pages/Admin';
+import { AnalyticsPage } from './pages/Analytics';
+import { BrandsPage } from './pages/Brands';
 import { DashboardPage } from './pages/Dashboard';
+import { DraftsPage } from './pages/Drafts';
 import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
 import { buttonClassName } from './ui/button';
@@ -34,6 +37,39 @@ function AppShell({ children }: { children: React.ReactNode }) {
                     }
                   >
                     Dashboard
+                  </NavLink>
+                  <NavLink
+                    to="/brands"
+                    className={({ isActive }) =>
+                      [
+                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                      ].join(' ')
+                    }
+                  >
+                    My Brands
+                  </NavLink>
+                  <NavLink
+                    to="/drafts"
+                    className={({ isActive }) =>
+                      [
+                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                      ].join(' ')
+                    }
+                  >
+                    My Drafts
+                  </NavLink>
+                  <NavLink
+                    to="/analytics"
+                    className={({ isActive }) =>
+                      [
+                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                      ].join(' ')
+                    }
+                  >
+                    Analytics
                   </NavLink>
                   {user.role === 'super_admin' ? (
                     <NavLink
@@ -118,6 +154,9 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/brands" element={<BrandsPage />} />
+          <Route path="/drafts" element={<DraftsPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
         </Route>
 
         <Route element={<AdminRoute />}>
