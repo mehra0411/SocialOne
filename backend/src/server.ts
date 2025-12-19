@@ -1,4 +1,5 @@
 // backend/src/server.ts
+
 import express from 'express';
 import adminRoutes from './modules/admin/routes';
 import feedRoutes from './modules/feed/routes';
@@ -12,5 +13,10 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/instagram', instagramRoutes);
 app.use('/api/reels', reelsRoutes);
+
+// Health check (no auth, no middleware)
+app.get('/health', (_req, res) => {
+  return res.json({ status: 'ok' });
+});
 
 export default app;
