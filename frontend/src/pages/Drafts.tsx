@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { buttonClassName } from '../ui/button';
+import { Skeleton } from '../ui/Skeleton';
 
 type BrandOption = { id: string; name: string };
 
@@ -53,6 +54,39 @@ function formatDate(iso: string | null): string {
   }
 }
 
+function formatStatusLabel(status: string): string {
+  // Keep calm, human-readable labels.
+  switch (status) {
+    case 'draft':
+      return 'Draft';
+    case 'scheduled':
+      return 'Scheduled';
+    case 'publishing':
+      return 'Publishing…';
+    case 'published':
+      return 'Published';
+    case 'failed':
+      return 'Failed';
+    case 'ready':
+      return 'Ready';
+    case 'generating':
+      return 'Generating…';
+    default:
+      return status;
+  }
+}
+
+function friendlyErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  if (lower.includes('unauthorized')) return 'Your session has expired. Please log in again.';
+  if (lower.includes('forbidden')) return 'You don’t have access to this brand. Please choose a different brand.';
+  if (lower.includes('network') || lower.includes('failed to fetch')) {
+    return 'Network issue—please check your connection and try again.';
+  }
+  return 'Something went wrong. Please try again.';
+}
+
 type PostType = 'feed' | 'reel';
 
 export function DraftsPage() {
@@ -98,7 +132,7 @@ export function DraftsPage() {
       setFeedPosts(feedResp.feedPosts);
       setReels(reelsResp.reels);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load posts');
+      setError(friendlyErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -110,6 +144,8 @@ export function DraftsPage() {
   }, [brandId]);
 
   const rows = tab === 'feed' ? feedPosts : reels;
+  const scheduledCount = useMemo(() => rows.filter((r: any) => r.status === 'scheduled').length, [rows]);
+  const hasAny = rows.length > 0;
 
   return (
     <div className="space-y-6">
@@ -146,6 +182,17 @@ export function DraftsPage() {
       </div>
 
       {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <div className="flex">
+          <button
+            className={buttonClassName({ variant: 'secondary' })}
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex items-center gap-2">
         <button
@@ -188,12 +235,31 @@ export function DraftsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r: any) => {
+              {loading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={`sk-${i}`} className="border-b border-zinc-100">
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-52" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-10" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-8 w-24 rounded-xl" />
+                          <Skeleton className="h-8 w-28 rounded-xl" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                : rows.map((r: any) => {
                 const status = r.status as string;
                 const isPublishingOrPublished = status === 'publishing' || status === 'published';
                 const canSchedule = !isPublishingOrPublished;
                 const canPublishNow = status === 'scheduled' || status === 'failed';
                 const platform = r.platform ?? 'instagram';
+                const actionsBusy = scheduleSubmitting || publishNowSubmitting;
 
                 return (
                   <tr key={r.id} className="border-b border-zinc-100">
@@ -201,7 +267,7 @@ export function DraftsPage() {
                     <td className="py-3 pr-4 text-zinc-700">{platform}</td>
                     <td className="py-3 pr-4">
                       <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-                        {status}
+                        {formatStatusLabel(status)}
                       </span>
                     </td>
                     <td className="py-3 pr-4 text-xs text-zinc-600">{formatDate(r.scheduled_at ?? null)}</td>
@@ -212,7 +278,7 @@ export function DraftsPage() {
                       <div className="flex items-center gap-2">
                         <button
                           className={buttonClassName({ variant: 'secondary', size: 'sm' })}
-                          disabled={!canSchedule}
+                          disabled={!canSchedule || actionsBusy}
                           onClick={() => {
                             setScheduleError(null);
                             setScheduleValue('');
@@ -228,7 +294,7 @@ export function DraftsPage() {
                         </button>
                         <button
                           className={buttonClassName({ variant: 'primary', size: 'sm', className: 'rounded-lg' })}
-                          disabled={!canPublishNow || isPublishingOrPublished}
+                          disabled={!canPublishNow || isPublishingOrPublished || actionsBusy}
                           onClick={() => {
                             setPublishNowError(null);
                             setPublishNowModal({ open: true, postType: tab, postId: r.id });
@@ -245,13 +311,28 @@ export function DraftsPage() {
               {!loading && rows.length === 0 ? (
                 <tr>
                   <td className="py-6 text-sm text-zinc-600" colSpan={8}>
-                    No posts found for this brand.
+                    <div className="space-y-1">
+                      <div className="font-medium text-zinc-900">No posts yet</div>
+                      <div>No feed posts or reels found for this brand.</div>
+                      <div className="text-zinc-600">
+                        Next: create a draft from <span className="font-medium text-zinc-900">Dashboard</span>.
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
+
+        {!loading && hasAny && scheduledCount === 0 ? (
+          <div className="mt-4 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+            <div className="font-medium text-zinc-900">No scheduled posts</div>
+            <div className="text-zinc-600">
+              Next: pick a post and use <span className="font-medium text-zinc-900">Schedule</span> to set a future publish time.
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {/* Schedule modal */}
@@ -260,9 +341,7 @@ export function DraftsPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-zinc-900">Schedule {scheduleModal.postType}</h3>
-              <p className="text-sm text-zinc-600">
-                Set <span className="font-medium">scheduled_at</span>. Must be in the future.
-              </p>
+              <p className="text-sm text-zinc-600">Choose when this post should be published. You can override later.</p>
             </div>
 
             <div className="mt-4 grid gap-2">
@@ -293,16 +372,16 @@ export function DraftsPage() {
                 onClick={async () => {
                   setScheduleError(null);
                   if (!scheduleValue) {
-                    setScheduleError('Please select a datetime.');
+                    setScheduleError('Please select a date and time.');
                     return;
                   }
                   const dt = new Date(scheduleValue);
                   if (!Number.isFinite(dt.getTime())) {
-                    setScheduleError('Invalid datetime.');
+                    setScheduleError('That date/time doesn’t look valid. Please try again.');
                     return;
                   }
                   if (dt.getTime() <= Date.now()) {
-                    setScheduleError('scheduled_at must be in the future.');
+                    setScheduleError('Scheduled time must be in the future.');
                     return;
                   }
 
@@ -325,7 +404,7 @@ export function DraftsPage() {
                     await refresh();
                     setScheduleModal({ open: false, postType: 'feed', postId: '', currentScheduledAt: null });
                   } catch (e) {
-                    setScheduleError(e instanceof Error ? e.message : 'Failed to schedule');
+                    setScheduleError(friendlyErrorMessage(e));
                   } finally {
                     setScheduleSubmitting(false);
                   }
@@ -343,9 +422,9 @@ export function DraftsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
             <div className="space-y-1">
-              <h3 className="text-base font-semibold text-zinc-900">Publish now</h3>
+              <h3 className="text-base font-semibold text-zinc-900">Publish now (manual override)</h3>
               <p className="text-sm text-zinc-600">
-                This will force immediate publishing (scheduled posts ignore scheduled_at; failed posts retry immediately).
+                This will publish immediately. Scheduled posts ignore the schedule; failed posts retry right away.
               </p>
             </div>
 
@@ -384,7 +463,7 @@ export function DraftsPage() {
                     await refresh();
                     setPublishNowModal({ open: false, postType: 'feed', postId: '' });
                   } catch (e) {
-                    setPublishNowError(e instanceof Error ? e.message : 'Publish failed');
+                    setPublishNowError(friendlyErrorMessage(e));
                   } finally {
                     setPublishNowSubmitting(false);
                   }

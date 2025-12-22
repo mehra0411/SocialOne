@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { buttonClassName } from '../ui/button';
+import { Skeleton } from '../ui/Skeleton';
 import {
   Bar,
   BarChart,
@@ -44,6 +45,19 @@ function formatPct(x: number): string {
 function fmtInt(x: number): string {
   if (!Number.isFinite(x)) return '0';
   return x.toLocaleString();
+}
+
+function friendlyErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  if (lower.includes('jwt') || lower.includes('unauthorized')) return 'Your session has expired. Please log in again.';
+  if (lower.includes('forbidden') || lower.includes('permission')) {
+    return 'You do not have permission to view metrics. Please contact an admin.';
+  }
+  if (lower.includes('network') || lower.includes('failed to fetch')) {
+    return 'Network issue—please check your connection and try again.';
+  }
+  return 'We couldn’t load metrics right now. Please try again.';
 }
 
 export function AdminMetricsPage() {
@@ -95,7 +109,7 @@ export function AdminMetricsPage() {
 
       setRows(normalized);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load metrics');
+      setError(friendlyErrorMessage(e));
       setRows([]);
     } finally {
       setLoading(false);
@@ -239,31 +253,49 @@ export function AdminMetricsPage() {
       </section>
 
       {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <div className="flex">
+          <button className={buttonClassName({ variant: 'secondary' })} onClick={() => void fetchMetrics()} disabled={loading}>
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       {/* Overview cards */}
       <section className="grid gap-3 md:grid-cols-5">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-zinc-600">Total attempts</div>
-          <div className="mt-1 text-lg font-semibold text-zinc-900">{fmtInt(overview.totalAttempts)}</div>
-        </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-zinc-600">Successful publishes</div>
-          <div className="mt-1 text-lg font-semibold text-zinc-900">{fmtInt(overview.successes)}</div>
-        </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-zinc-600">Failed publishes</div>
-          <div className="mt-1 text-lg font-semibold text-zinc-900">{fmtInt(overview.failures)}</div>
-        </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-zinc-600">Success rate</div>
-          <div className="mt-1 text-lg font-semibold text-zinc-900">{formatPct(overview.successRate)}</div>
-        </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-zinc-600">Avg attempts / post</div>
-          <div className="mt-1 text-lg font-semibold text-zinc-900">
-            {Number.isFinite(overview.avgAttempts) ? overview.avgAttempts.toFixed(2) : '-'}
-          </div>
-        </div>
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={`card-sk-${i}`} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-2 h-7 w-20" />
+            </div>
+          ))
+        ) : (
+          <>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="text-xs font-medium text-zinc-600">Total attempts</div>
+              <div className="mt-1 text-lg font-semibold text-zinc-900">{fmtInt(overview.totalAttempts)}</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="text-xs font-medium text-zinc-600">Successful publishes</div>
+              <div className="mt-1 text-lg font-semibold text-zinc-900">{fmtInt(overview.successes)}</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="text-xs font-medium text-zinc-600">Failed publishes</div>
+              <div className="mt-1 text-lg font-semibold text-zinc-900">{fmtInt(overview.failures)}</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="text-xs font-medium text-zinc-600">Success rate</div>
+              <div className="mt-1 text-lg font-semibold text-zinc-900">{formatPct(overview.successRate)}</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="text-xs font-medium text-zinc-600">Avg attempts / post</div>
+              <div className="mt-1 text-lg font-semibold text-zinc-900">
+                {Number.isFinite(overview.avgAttempts) ? overview.avgAttempts.toFixed(2) : '-'}
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       {/* Charts */}
@@ -272,7 +304,12 @@ export function AdminMetricsPage() {
           <h2 className="text-base font-semibold text-zinc-900">Daily attempts</h2>
           <p className="text-sm text-zinc-600">Total attempts per day.</p>
           <div className="mt-4 h-64">
-            {dailySeries.length ? (
+            {loading ? (
+              <div className="h-full space-y-3">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-[220px] w-full" />
+              </div>
+            ) : dailySeries.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={dailySeries}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -283,7 +320,9 @@ export function AdminMetricsPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">No data for selected filters.</div>
+              <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+                No data for the selected filters/date range. Try expanding the date range or clearing filters.
+              </div>
             )}
           </div>
         </div>
@@ -292,7 +331,12 @@ export function AdminMetricsPage() {
           <h2 className="text-base font-semibold text-zinc-900">Success vs failure</h2>
           <p className="text-sm text-zinc-600">Stacked counts per day.</p>
           <div className="mt-4 h-64">
-            {dailySeries.length ? (
+            {loading ? (
+              <div className="h-full space-y-3">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-[220px] w-full" />
+              </div>
+            ) : dailySeries.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dailySeries}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -305,7 +349,9 @@ export function AdminMetricsPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">No data for selected filters.</div>
+              <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+                No data for the selected filters/date range. Try expanding the date range or clearing filters.
+              </div>
             )}
           </div>
         </div>
@@ -335,23 +381,42 @@ export function AdminMetricsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={`${r.day}-${r.platform}-${r.post_type}-${r.trigger_type}`} className="border-b border-zinc-100">
-                  <td className="py-3 pr-4 text-zinc-700">{r.day}</td>
-                  <td className="py-3 pr-4 text-zinc-700">{r.platform}</td>
-                  <td className="py-3 pr-4 text-zinc-700">{r.post_type}</td>
-                  <td className="py-3 pr-4 text-zinc-700">{r.trigger_type}</td>
-                  <td className="py-3 pr-4 text-zinc-700">{fmtInt(r.total_attempts)}</td>
-                  <td className="py-3 pr-4 text-zinc-700">{fmtInt(r.successful_publishes)}</td>
-                  <td className="py-3 pr-4 text-zinc-700">{fmtInt(r.failed_publishes)}</td>
-                  <td className="py-3 pr-4 text-zinc-700">{formatPct(r.success_rate)}</td>
-                </tr>
-              ))}
+              {loading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={`tbl-sk-${i}`} className="border-b border-zinc-100">
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-14" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-3 pr-4"><Skeleton className="h-4 w-16" /></td>
+                    </tr>
+                  ))
+                : rows.map((r) => (
+                    <tr key={`${r.day}-${r.platform}-${r.post_type}-${r.trigger_type}`} className="border-b border-zinc-100">
+                      <td className="py-3 pr-4 text-zinc-700">{r.day}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{r.platform}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{r.post_type}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{r.trigger_type}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{fmtInt(r.total_attempts)}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{fmtInt(r.successful_publishes)}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{fmtInt(r.failed_publishes)}</td>
+                      <td className="py-3 pr-4 text-zinc-700">{formatPct(r.success_rate)}</td>
+                    </tr>
+                  ))}
 
               {!loading && rows.length === 0 ? (
                 <tr>
                   <td className="py-6 text-sm text-zinc-600" colSpan={8}>
-                    No metrics found for the selected filters.
+                    <div className="space-y-1">
+                      <div className="font-medium text-zinc-900">No data for this selection</div>
+                      <div>No publish attempts were recorded for the chosen date range/filters.</div>
+                      <div className="text-zinc-600">
+                        Next: try expanding the date range or clearing filters.
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : null}
