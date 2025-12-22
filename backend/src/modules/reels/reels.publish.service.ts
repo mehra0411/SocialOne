@@ -98,11 +98,16 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
     const platform = working.platform as PlatformId;
     const adapter = getAdapter(platform);
 
+    if (!working.video_url) {
+      throw new Error('Reel video URL is missing; cannot publish');
+    }
+    const videoUrl = working.video_url;
+
     const result = await adapter.publish({
       platform,
       contentType: 'reel',
       brandId: working.brand_id,
-      media: { kind: 'video', url: working.video_url },
+      media: { kind: 'video', url: videoUrl },
       connection: {
         accountId: igAccount.instagram_user_id,
         accessToken,
@@ -187,11 +192,16 @@ export async function manualPublishReel(userId: string, reelId: string): Promise
     const platform = claimed.platform as PlatformId;
     const adapter = getAdapter(platform);
 
+    if (!claimed.video_url) {
+      throw new Error('Reel video URL is missing; cannot publish');
+    }
+    const videoUrl = claimed.video_url;
+
     const result = await adapter.publish({
       platform,
       contentType: 'reel',
       brandId: claimed.brand_id,
-      media: { kind: 'video', url: claimed.video_url },
+      media: { kind: 'video', url: videoUrl },
       connection: {
         accountId: igAccount.instagram_user_id,
         accessToken,

@@ -114,11 +114,16 @@ async function publishScheduledReel(reel: Reel): Promise<{ containerId: string; 
   if (!reel.video_url) throw new Error('Missing video_url');
   const connection = await resolveConnection(platform, reel.brand_id);
 
+  if (!reel.video_url) {
+    throw new Error('Reel video URL is missing; cannot publish');
+  }
+  const videoUrl = reel.video_url;
+
   const result = await adapter.publish({
     platform,
     contentType: 'reel',
     brandId: reel.brand_id,
-    media: { kind: 'video', url: reel.video_url },
+    media: { kind: 'video', url: videoUrl },
     connection,
   });
 
