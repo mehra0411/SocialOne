@@ -248,4 +248,66 @@ export async function claimRetryFailedFeedPost(args: {
   return rows?.[0] ?? null;
 }
 
+/**
+ * Manual override claim for scheduled posts:
+ * scheduled -> publishing (ignores scheduled_at).
+ */
+export async function claimManualScheduledFeedPost(feedPostId: string): Promise<FeedPost | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+  qs.set('status', 'eq.scheduled');
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
+/**
+ * Manual override claim for failed retries:
+ * - ignores backoff window
+ * - increments retry_count and sets last_retry_at
+ * - failed -> publishing
+ *
+ * Concurrency safety:
+ * - requires retry_count to match expected value.
+ */
+export async function claimManualRetryFailedFeedPost(args: {
+  feedPostId: string;
+  nowIso: string;
+  expectedRetryCount: number;
+}): Promise<FeedPost | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${args.feedPostId}`);
+  qs.set('status', 'eq.failed');
+  qs.set('retry_count', `eq.${args.expectedRetryCount}`);
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      retry_count: args.expectedRetryCount + 1,
+      last_retry_at: args.nowIso,
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
 

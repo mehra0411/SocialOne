@@ -3,6 +3,8 @@ import { getConnectedInstagramAccountByBrandId } from '../instagram/instagram-ac
 import { decryptAccessToken } from '../instagram/token.crypto';
 import {
   getReelById,
+  claimManualRetryFailedReel,
+  claimManualScheduledReel,
   markReelFailed,
   markReelPublished,
   markReelPublishing,
@@ -11,6 +13,13 @@ import {
 } from './reels.repository';
 import { getAdapter } from '../../platforms/adapterRegistry';
 import type { PlatformId } from '../../platforms/types';
+
+function getMaxRetries(): number {
+  const raw = process.env.SCHEDULER_MAX_RETRIES;
+  if (!raw) return 3;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 3;
+}
 
 export type PublishReelResult = {
   reel: Reel;
@@ -75,6 +84,78 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
 
     await markReelPublished(reelId);
     const updated = (await getReelById(reelId)) ?? reel;
+    return { reel: updated, mediaContainerId, instagramMediaId };
+  } catch (e) {
+    await markReelFailed(reelId);
+    throw e;
+  }
+}
+
+/**
+ * INTERNAL: Manual override to force immediate publish.
+ *
+ * Rules:
+ * - scheduled: ignore scheduled_at and publish immediately (atomic claim scheduled->publishing)
+ * - failed: allow immediate retry (ignore backoff) but respect max retry limit; increment retry_count atomically
+ * - published/publishing: reject
+ */
+export async function manualPublishReel(userId: string, reelId: string): Promise<PublishReelResult> {
+  const reel = await getReelById(reelId);
+  if (!reel) throw new Error('Reel not found');
+
+  if (reel.status === 'published') throw new Error('Reel is already published');
+  if (reel.status === 'publishing') throw new Error('Reel is already in progress');
+
+  const brand = await getBrandById(reel.brand_id, userId);
+  if (!brand) throw new Error('Forbidden');
+
+  const igAccount = await getConnectedInstagramAccountByBrandId(reel.brand_id);
+  if (!igAccount) throw new Error('Instagram account not connected');
+  if (!igAccount.instagram_user_id) throw new Error('Missing instagram_user_id');
+  if (!igAccount.access_token_encrypted) throw new Error('Missing access_token_encrypted');
+
+  const accessToken = decryptAccessToken(igAccount.access_token_encrypted);
+  if (!reel.video_url) throw new Error('Missing video_url');
+
+  const nowIso = new Date().toISOString();
+
+  let claimed: Reel | null = null;
+  if (reel.status === 'scheduled') {
+    claimed = await claimManualScheduledReel(reelId);
+  } else if (reel.status === 'failed') {
+    const maxRetries = getMaxRetries();
+    if (reel.retry_count >= maxRetries) throw new Error('Max retries exceeded');
+    claimed = await claimManualRetryFailedReel({
+      reelId,
+      nowIso,
+      expectedRetryCount: reel.retry_count,
+    });
+  } else {
+    throw new Error(`Manual publish not allowed from status: ${reel.status}`);
+  }
+
+  if (!claimed) throw new Error('Reel could not be claimed for publishing');
+
+  try {
+    const platform = claimed.platform as PlatformId;
+    const adapter = getAdapter(platform);
+
+    const result = await adapter.publish({
+      platform,
+      contentType: 'reel',
+      brandId: claimed.brand_id,
+      media: { kind: 'video', url: claimed.video_url },
+      connection: {
+        accountId: igAccount.instagram_user_id,
+        accessToken,
+      },
+    });
+
+    const mediaContainerId = result.containerId as string;
+    const instagramMediaId = result.publishedId as string;
+
+    await markReelPublished(reelId);
+    const updated = (await getReelById(reelId)) ?? claimed;
     return { reel: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
     await markReelFailed(reelId);

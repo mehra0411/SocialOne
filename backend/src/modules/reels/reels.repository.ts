@@ -216,6 +216,55 @@ export async function claimRetryFailedReel(args: {
   return rows?.[0] ?? null;
 }
 
+export async function claimManualScheduledReel(reelId: string): Promise<Reel | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${reelId}`);
+  qs.set('status', 'eq.scheduled');
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<Reel[]>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
+export async function claimManualRetryFailedReel(args: {
+  reelId: string;
+  nowIso: string;
+  expectedRetryCount: number;
+}): Promise<Reel | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${args.reelId}`);
+  qs.set('status', 'eq.failed');
+  qs.set('retry_count', `eq.${args.expectedRetryCount}`);
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<Reel[]>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      retry_count: args.expectedRetryCount + 1,
+      last_retry_at: args.nowIso,
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
 export async function setAiReelResult(args: {
   reelId: string;
   videoUrl: string;
