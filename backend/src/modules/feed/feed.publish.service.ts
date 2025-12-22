@@ -14,6 +14,7 @@ import {
   type FeedPost,
 } from './feed.repository';
 import { uploadImageIfNeeded } from './uploadImageIfNeeded';
+import { tryWritePublishAttempt } from '../audit/publishAttempts.audit';
 
 function getMaxRetries(): number {
   const raw = process.env.SCHEDULER_MAX_RETRIES;
@@ -86,16 +87,45 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
       throw new Error('Feed post is not a draft');
     }
 
-    await markFeedPostPublishing(feedPostId);
+    const nowIso = new Date().toISOString();
+    const trigger_type = post.status === 'failed' ? 'retry' : 'manual';
 
-    const caption = post.caption ?? '';
-    const platform = post.platform as PlatformId;
+    // Concurrency-safe start:
+    // - draft: simple transition
+    // - failed: atomic retry_count increment + publishing transition
+    let working: FeedPost = post;
+    if (post.status === 'draft') {
+      await markFeedPostPublishing(feedPostId);
+      working = (await getFeedPostById(feedPostId)) ?? post;
+    } else {
+      const maxRetries = getMaxRetries();
+      if (post.retry_count >= maxRetries) throw new Error('Max retries exceeded');
+      const claimed = await claimManualRetryFailedFeedPost({
+        feedPostId,
+        nowIso,
+        expectedRetryCount: post.retry_count,
+      });
+      if (!claimed) throw new Error('Feed post could not be claimed for publishing');
+      working = claimed;
+    }
+
+    await tryWritePublishAttempt({
+      post_id: working.id,
+      post_type: 'feed',
+      platform: String(working.platform),
+      trigger_type,
+      attempt_number: working.retry_count + 1,
+      status: 'publishing',
+    });
+
+    const caption = working.caption ?? '';
+    const platform = working.platform as PlatformId;
     const adapter = getAdapter(platform);
 
     const result = await adapter.publish({
       platform,
       contentType: 'feed_post',
-      brandId: post.brand_id,
+      brandId: working.brand_id,
       media: { kind: 'image', url: publicImageUrl },
       caption: { text: caption },
       connection: {
@@ -108,11 +138,28 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
     const instagramMediaId = result.publishedId as string;
 
     await markFeedPostPublished(feedPostId);
-    const updated = (await getFeedPostById(feedPostId)) ?? post;
+    await tryWritePublishAttempt({
+      post_id: working.id,
+      post_type: 'feed',
+      platform: String(working.platform),
+      trigger_type,
+      attempt_number: working.retry_count + 1,
+      status: 'published',
+    });
+    const updated = (await getFeedPostById(feedPostId)) ?? working;
 
     return { feedPost: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
     await markFeedPostFailed(feedPostId);
+    await tryWritePublishAttempt({
+      post_id: post.id,
+      post_type: 'feed',
+      platform: String(post.platform),
+      trigger_type: post.status === 'failed' ? 'retry' : 'manual',
+      attempt_number: post.retry_count + 1,
+      status: 'failed',
+      error_message: e instanceof Error ? e.message : String(e),
+    });
     throw e;
   }
 }
@@ -168,6 +215,16 @@ export async function manualPublishFeedPost(userId: string, feedPostId: string):
   if (!claimed) throw new Error('Feed post could not be claimed for publishing');
 
   try {
+    const trigger_type = post.status === 'failed' ? 'retry' : 'manual';
+    await tryWritePublishAttempt({
+      post_id: claimed.id,
+      post_type: 'feed',
+      platform: String(claimed.platform),
+      trigger_type,
+      attempt_number: claimed.retry_count + 1,
+      status: 'publishing',
+    });
+
     const caption = claimed.caption ?? '';
     const platform = claimed.platform as PlatformId;
     const adapter = getAdapter(platform);
@@ -188,10 +245,28 @@ export async function manualPublishFeedPost(userId: string, feedPostId: string):
     const instagramMediaId = result.publishedId as string;
 
     await markFeedPostPublished(feedPostId);
+    await tryWritePublishAttempt({
+      post_id: claimed.id,
+      post_type: 'feed',
+      platform: String(claimed.platform),
+      trigger_type,
+      attempt_number: claimed.retry_count + 1,
+      status: 'published',
+    });
     const updated = (await getFeedPostById(feedPostId)) ?? claimed;
     return { feedPost: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
     await markFeedPostFailed(feedPostId);
+    const trigger_type = post.status === 'failed' ? 'retry' : 'manual';
+    await tryWritePublishAttempt({
+      post_id: claimed.id,
+      post_type: 'feed',
+      platform: String(claimed.platform),
+      trigger_type,
+      attempt_number: claimed.retry_count + 1,
+      status: 'failed',
+      error_message: e instanceof Error ? e.message : String(e),
+    });
     throw e;
   }
 }

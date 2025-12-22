@@ -21,6 +21,7 @@ import {
   markReelPublished,
   type Reel,
 } from '../modules/reels/reels.repository';
+import { tryWritePublishAttempt } from '../modules/audit/publishAttempts.audit';
 
 export type RunScheduledPublishesOptions = {
   /**
@@ -155,9 +156,28 @@ export async function runScheduledPublishes(
     result.attempted += 1;
 
     try {
+      await tryWritePublishAttempt({
+        post_id: claimed.id,
+        post_type: 'feed',
+        platform: String(claimed.platform),
+        trigger_type: 'scheduled',
+        attempt_number: claimed.retry_count + 1,
+        status: 'publishing',
+      });
+
       const ids = await publishScheduledFeedPost(claimed);
       await markFeedPostPublished(claimed.id);
       result.published += 1;
+
+      await tryWritePublishAttempt({
+        post_id: claimed.id,
+        post_type: 'feed',
+        platform: String(claimed.platform),
+        trigger_type: 'scheduled',
+        attempt_number: claimed.retry_count + 1,
+        status: 'published',
+      });
+
       logEvent({
         type: 'feed_post',
         postId: claimed.id,
@@ -169,6 +189,17 @@ export async function runScheduledPublishes(
     } catch (e) {
       await markFeedPostFailed(claimed.id);
       result.failed += 1;
+
+      await tryWritePublishAttempt({
+        post_id: claimed.id,
+        post_type: 'feed',
+        platform: String(claimed.platform),
+        trigger_type: 'scheduled',
+        attempt_number: claimed.retry_count + 1,
+        status: 'failed',
+        error_message: e instanceof Error ? e.message : String(e),
+      });
+
       logEvent({
         type: 'feed_post',
         postId: claimed.id,
@@ -201,9 +232,28 @@ export async function runScheduledPublishes(
       result.attempted += 1;
 
       try {
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'feed',
+          platform: String(claimed.platform),
+          trigger_type: 'retry',
+          attempt_number: claimed.retry_count + 1,
+          status: 'publishing',
+        });
+
         const ids = await publishScheduledFeedPost(claimed);
         await markFeedPostPublished(claimed.id);
         result.published += 1;
+
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'feed',
+          platform: String(claimed.platform),
+          trigger_type: 'retry',
+          attempt_number: claimed.retry_count + 1,
+          status: 'published',
+        });
+
         logEvent({
           type: 'feed_post',
           postId: claimed.id,
@@ -217,6 +267,17 @@ export async function runScheduledPublishes(
       } catch (e) {
         await markFeedPostFailed(claimed.id);
         result.failed += 1;
+
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'feed',
+          platform: String(claimed.platform),
+          trigger_type: 'retry',
+          attempt_number: claimed.retry_count + 1,
+          status: 'failed',
+          error_message: e instanceof Error ? e.message : String(e),
+        });
+
         logEvent({
           type: 'feed_post',
           postId: claimed.id,
@@ -245,9 +306,28 @@ export async function runScheduledPublishes(
       result.attempted += 1;
 
       try {
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'reel',
+          platform: String(claimed.platform),
+          trigger_type: 'scheduled',
+          attempt_number: claimed.retry_count + 1,
+          status: 'publishing',
+        });
+
         const ids = await publishScheduledReel(claimed);
         await markReelPublished(claimed.id);
         result.published += 1;
+
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'reel',
+          platform: String(claimed.platform),
+          trigger_type: 'scheduled',
+          attempt_number: claimed.retry_count + 1,
+          status: 'published',
+        });
+
         logEvent({
           type: 'reel',
           postId: claimed.id,
@@ -259,6 +339,17 @@ export async function runScheduledPublishes(
       } catch (e) {
         await markReelFailed(claimed.id);
         result.failed += 1;
+
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'reel',
+          platform: String(claimed.platform),
+          trigger_type: 'scheduled',
+          attempt_number: claimed.retry_count + 1,
+          status: 'failed',
+          error_message: e instanceof Error ? e.message : String(e),
+        });
+
         logEvent({
           type: 'reel',
           postId: claimed.id,
@@ -292,9 +383,28 @@ export async function runScheduledPublishes(
       result.attempted += 1;
 
       try {
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'reel',
+          platform: String(claimed.platform),
+          trigger_type: 'retry',
+          attempt_number: claimed.retry_count + 1,
+          status: 'publishing',
+        });
+
         const ids = await publishScheduledReel(claimed);
         await markReelPublished(claimed.id);
         result.published += 1;
+
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'reel',
+          platform: String(claimed.platform),
+          trigger_type: 'retry',
+          attempt_number: claimed.retry_count + 1,
+          status: 'published',
+        });
+
         logEvent({
           type: 'reel',
           postId: claimed.id,
@@ -308,6 +418,17 @@ export async function runScheduledPublishes(
       } catch (e) {
         await markReelFailed(claimed.id);
         result.failed += 1;
+
+        await tryWritePublishAttempt({
+          post_id: claimed.id,
+          post_type: 'reel',
+          platform: String(claimed.platform),
+          trigger_type: 'retry',
+          attempt_number: claimed.retry_count + 1,
+          status: 'failed',
+          error_message: e instanceof Error ? e.message : String(e),
+        });
+
         logEvent({
           type: 'reel',
           postId: claimed.id,

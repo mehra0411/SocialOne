@@ -13,6 +13,7 @@ import {
 } from './reels.repository';
 import { getAdapter } from '../../platforms/adapterRegistry';
 import type { PlatformId } from '../../platforms/types';
+import { tryWritePublishAttempt } from '../audit/publishAttempts.audit';
 
 function getMaxRetries(): number {
   const raw = process.env.SCHEDULER_MAX_RETRIES;
@@ -63,16 +64,45 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
     // Immediate publish path: allow 'ready' and manual retry for 'failed' reels (when a video exists).
     if (reel.status !== 'ready' && reel.status !== 'failed') throw new Error('Reel is not ready');
 
-    await markReelPublishing(reelId);
+    const nowIso = new Date().toISOString();
+    const trigger_type = reel.status === 'failed' ? 'retry' : 'manual';
 
-    const platform = reel.platform as PlatformId;
+    // Concurrency-safe start:
+    // - ready: simple transition
+    // - failed: atomic retry_count increment + publishing transition
+    let working: Reel = reel;
+    if (reel.status === 'ready') {
+      await markReelPublishing(reelId);
+      working = (await getReelById(reelId)) ?? reel;
+    } else {
+      const maxRetries = getMaxRetries();
+      if (reel.retry_count >= maxRetries) throw new Error('Max retries exceeded');
+      const claimed = await claimManualRetryFailedReel({
+        reelId,
+        nowIso,
+        expectedRetryCount: reel.retry_count,
+      });
+      if (!claimed) throw new Error('Reel could not be claimed for publishing');
+      working = claimed;
+    }
+
+    await tryWritePublishAttempt({
+      post_id: working.id,
+      post_type: 'reel',
+      platform: String(working.platform),
+      trigger_type,
+      attempt_number: working.retry_count + 1,
+      status: 'publishing',
+    });
+
+    const platform = working.platform as PlatformId;
     const adapter = getAdapter(platform);
 
     const result = await adapter.publish({
       platform,
       contentType: 'reel',
-      brandId: reel.brand_id,
-      media: { kind: 'video', url: reel.video_url },
+      brandId: working.brand_id,
+      media: { kind: 'video', url: working.video_url },
       connection: {
         accountId: igAccount.instagram_user_id,
         accessToken,
@@ -83,10 +113,27 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
     const instagramMediaId = result.publishedId as string;
 
     await markReelPublished(reelId);
+    await tryWritePublishAttempt({
+      post_id: working.id,
+      post_type: 'reel',
+      platform: String(working.platform),
+      trigger_type,
+      attempt_number: working.retry_count + 1,
+      status: 'published',
+    });
     const updated = (await getReelById(reelId)) ?? reel;
     return { reel: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
     await markReelFailed(reelId);
+    await tryWritePublishAttempt({
+      post_id: reel.id,
+      post_type: 'reel',
+      platform: String(reel.platform),
+      trigger_type: reel.status === 'failed' ? 'retry' : 'manual',
+      attempt_number: reel.retry_count + 1,
+      status: 'failed',
+      error_message: e instanceof Error ? e.message : String(e),
+    });
     throw e;
   }
 }
