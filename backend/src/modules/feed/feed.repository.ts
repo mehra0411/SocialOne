@@ -14,6 +14,8 @@ export type FeedPost = {
   scheduled_at: string | null;
   published_at: string | null;
   failed_at: string | null;
+  retry_count: number;
+  last_retry_at: string | null;
 };
 
 type CreateDraftArgs = {
@@ -188,6 +190,57 @@ export async function claimDueScheduledFeedPost(feedPostId: string, nowIso: stri
     },
     body: JSON.stringify({
       status: 'publishing',
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
+export async function listFailedFeedPostsForRetry(limit: number, maxRetries: number): Promise<FeedPost[]> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('status', 'eq.failed');
+  qs.set('retry_count', `lt.${maxRetries}`);
+  qs.set('order', 'failed_at.desc');
+  qs.set('limit', String(limit));
+
+  return await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, { method: 'GET' });
+}
+
+/**
+ * Concurrency-safe retry claim:
+ * - Only claims if still failed and retry_count matches expected (prevents double increment)
+ * - Increments retry_count and sets last_retry_at
+ * - Moves status to publishing
+ */
+export async function claimRetryFailedFeedPost(args: {
+  feedPostId: string;
+  nowIso: string;
+  expectedRetryCount: number;
+  expectedLastRetryAt: string | null;
+}): Promise<FeedPost | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${args.feedPostId}`);
+  qs.set('status', 'eq.failed');
+  qs.set('retry_count', `eq.${args.expectedRetryCount}`);
+  if (args.expectedLastRetryAt) {
+    qs.set('last_retry_at', `eq.${args.expectedLastRetryAt}`);
+  } else {
+    qs.set('last_retry_at', 'is.null');
+  }
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      retry_count: args.expectedRetryCount + 1,
+      last_retry_at: args.nowIso,
       failed_at: null,
     }),
   });

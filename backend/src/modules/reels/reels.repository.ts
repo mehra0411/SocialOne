@@ -16,6 +16,8 @@ export type Reel = {
   scheduled_at: string | null;
   published_at: string | null;
   failed_at: string | null;
+  retry_count: number;
+  last_retry_at: string | null;
 };
 
 function getSupabaseConfig() {
@@ -162,6 +164,51 @@ export async function claimDueScheduledReel(reelId: string, nowIso: string): Pro
     },
     body: JSON.stringify({
       status: 'publishing',
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
+export async function listFailedReelsForRetry(limit: number, maxRetries: number): Promise<Reel[]> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('status', 'eq.failed');
+  qs.set('retry_count', `lt.${maxRetries}`);
+  qs.set('order', 'failed_at.desc');
+  qs.set('limit', String(limit));
+
+  return await supabaseRest<Reel[]>(`/rest/v1/reels?${qs.toString()}`, { method: 'GET' });
+}
+
+export async function claimRetryFailedReel(args: {
+  reelId: string;
+  nowIso: string;
+  expectedRetryCount: number;
+  expectedLastRetryAt: string | null;
+}): Promise<Reel | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${args.reelId}`);
+  qs.set('status', 'eq.failed');
+  qs.set('retry_count', `eq.${args.expectedRetryCount}`);
+  if (args.expectedLastRetryAt) {
+    qs.set('last_retry_at', `eq.${args.expectedLastRetryAt}`);
+  } else {
+    qs.set('last_retry_at', 'is.null');
+  }
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<Reel[]>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      retry_count: args.expectedRetryCount + 1,
+      last_retry_at: args.nowIso,
       failed_at: null,
     }),
   });

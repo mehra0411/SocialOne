@@ -3,16 +3,20 @@ import type { PlatformId } from '../platforms/types';
 import { getConnectedInstagramAccountByBrandId } from '../modules/instagram/instagram-accounts.repository';
 import { decryptAccessToken } from '../modules/instagram/token.crypto';
 import {
+  claimRetryFailedFeedPost,
   claimDueScheduledFeedPost,
   listDueScheduledFeedPosts,
+  listFailedFeedPostsForRetry,
   markFeedPostFailed,
   markFeedPostPublished,
   type FeedPost,
 } from '../modules/feed/feed.repository';
 import { uploadImageIfNeeded } from '../modules/feed/uploadImageIfNeeded';
 import {
+  claimRetryFailedReel,
   claimDueScheduledReel,
   listDueScheduledReels,
+  listFailedReelsForRetry,
   markReelFailed,
   markReelPublished,
   type Reel,
@@ -36,6 +40,33 @@ function logEvent(event: Record<string, unknown>) {
   // Simple deterministic logging (no external service).
   // eslint-disable-next-line no-console
   console.log(JSON.stringify(event));
+}
+
+function getMaxRetries(): number {
+  const raw = process.env.SCHEDULER_MAX_RETRIES;
+  if (!raw) return 3;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 3;
+}
+
+/**
+ * Retry backoff policy (documented):
+ * Exponential backoff in seconds: 60 * 2^(retry_count)
+ * - retry_count is the number of previous attempts (0 for first failure)
+ * - This yields: 60s, 120s, 240s, ...
+ */
+function backoffSeconds(retryCount: number): number {
+  const base = 60;
+  const exp = Math.max(0, Math.min(10, retryCount)); // cap growth to keep it bounded/deterministic
+  return base * 2 ** exp;
+}
+
+function isRetryDue(nowMs: number, lastRetryAtIso: string | null, retryCount: number): boolean {
+  if (!lastRetryAtIso) return true;
+  const last = Date.parse(lastRetryAtIso);
+  if (!Number.isFinite(last)) return true;
+  const dueAt = last + backoffSeconds(retryCount) * 1000;
+  return nowMs >= dueAt;
 }
 
 async function resolveConnection(platform: PlatformId, brandId: string): Promise<{ accountId: string; accessToken: string }> {
@@ -105,6 +136,8 @@ export async function runScheduledPublishes(
 ): Promise<RunScheduledPublishesResult> {
   const limit = options.limit ?? 10;
   const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const maxRetries = getMaxRetries();
 
   const result: RunScheduledPublishesResult = { attempted: 0, published: 0, failed: 0, skipped: 0 };
 
@@ -146,7 +179,58 @@ export async function runScheduledPublishes(
     }
   }
 
-  const remaining = limit - result.attempted;
+  // Retry-eligible failed feed posts (bounded by remaining limit).
+  let remaining = limit - result.attempted;
+  if (remaining > 0 && maxRetries > 0) {
+    const failedFeed = await listFailedFeedPostsForRetry(remaining, maxRetries);
+    for (const row of failedFeed) {
+      if (result.attempted >= limit) break;
+      if (!isRetryDue(nowMs, row.last_retry_at, row.retry_count)) continue;
+
+      const claimed = await claimRetryFailedFeedPost({
+        feedPostId: row.id,
+        nowIso,
+        expectedRetryCount: row.retry_count,
+        expectedLastRetryAt: row.last_retry_at,
+      });
+      if (!claimed) {
+        result.skipped += 1;
+        continue;
+      }
+
+      result.attempted += 1;
+
+      try {
+        const ids = await publishScheduledFeedPost(claimed);
+        await markFeedPostPublished(claimed.id);
+        result.published += 1;
+        logEvent({
+          type: 'feed_post',
+          postId: claimed.id,
+          platform: claimed.platform,
+          result: 'published',
+          retry: true,
+          retryCount: claimed.retry_count,
+          containerId: ids.containerId,
+          publishedId: ids.publishedId,
+        });
+      } catch (e) {
+        await markFeedPostFailed(claimed.id);
+        result.failed += 1;
+        logEvent({
+          type: 'feed_post',
+          postId: claimed.id,
+          platform: claimed.platform,
+          result: 'failed',
+          retry: true,
+          retryCount: claimed.retry_count,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
+  remaining = limit - result.attempted;
   if (remaining > 0) {
     const dueReels = await listDueScheduledReels(remaining, nowIso);
     for (const row of dueReels) {
@@ -180,6 +264,57 @@ export async function runScheduledPublishes(
           postId: claimed.id,
           platform: claimed.platform,
           result: 'failed',
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
+  // Retry-eligible failed reels (bounded by remaining limit).
+  remaining = limit - result.attempted;
+  if (remaining > 0 && maxRetries > 0) {
+    const failedReels = await listFailedReelsForRetry(remaining, maxRetries);
+    for (const row of failedReels) {
+      if (result.attempted >= limit) break;
+      if (!isRetryDue(nowMs, row.last_retry_at, row.retry_count)) continue;
+
+      const claimed = await claimRetryFailedReel({
+        reelId: row.id,
+        nowIso,
+        expectedRetryCount: row.retry_count,
+        expectedLastRetryAt: row.last_retry_at,
+      });
+      if (!claimed) {
+        result.skipped += 1;
+        continue;
+      }
+
+      result.attempted += 1;
+
+      try {
+        const ids = await publishScheduledReel(claimed);
+        await markReelPublished(claimed.id);
+        result.published += 1;
+        logEvent({
+          type: 'reel',
+          postId: claimed.id,
+          platform: claimed.platform,
+          result: 'published',
+          retry: true,
+          retryCount: claimed.retry_count,
+          containerId: ids.containerId,
+          publishedId: ids.publishedId,
+        });
+      } catch (e) {
+        await markReelFailed(claimed.id);
+        result.failed += 1;
+        logEvent({
+          type: 'reel',
+          postId: claimed.id,
+          platform: claimed.platform,
+          result: 'failed',
+          retry: true,
+          retryCount: claimed.retry_count,
           error: e instanceof Error ? e.message : String(e),
         });
       }
