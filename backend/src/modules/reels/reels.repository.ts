@@ -64,6 +64,30 @@ export async function getReelById(reelId: string): Promise<Reel | null> {
   return rows[0] ?? null;
 }
 
+export async function listReelsByBrand(brandId: string, limit = 50): Promise<Reel[]> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('brand_id', `eq.${brandId}`);
+  qs.set('order', 'created_at.desc');
+  qs.set('limit', String(limit));
+
+  return await supabaseRest<Reel[]>(`/rest/v1/reels?${qs.toString()}`, { method: 'GET' });
+}
+
+export async function setReelScheduledAt(reelId: string, scheduledAtIso: string | null): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${reelId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ scheduled_at: scheduledAtIso }),
+  });
+}
+
 export async function updateReelStatus(reelId: string, status: ReelStatus): Promise<void> {
   const qs = new URLSearchParams();
   qs.set('id', `eq.${reelId}`);

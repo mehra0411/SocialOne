@@ -90,6 +90,30 @@ export async function getFeedPostById(feedPostId: string): Promise<FeedPost | nu
   return rows[0] ?? null;
 }
 
+export async function listFeedPostsByBrand(brandId: string, limit = 50): Promise<FeedPost[]> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('brand_id', `eq.${brandId}`);
+  qs.set('order', 'created_at.desc');
+  qs.set('limit', String(limit));
+
+  return await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, { method: 'GET' });
+}
+
+export async function setFeedPostScheduledAt(feedPostId: string, scheduledAtIso: string | null): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ scheduled_at: scheduledAtIso }),
+  });
+}
+
 export async function updateFeedPostStatus(feedPostId: string, status: FeedPostStatus): Promise<void> {
   const qs = new URLSearchParams();
   qs.set('id', `eq.${feedPostId}`);
