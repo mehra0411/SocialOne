@@ -3,6 +3,7 @@ import { getConnectedInstagramAccountByBrandId } from '../instagram/instagram-ac
 import { decryptAccessToken } from '../instagram/token.crypto';
 import { getReelById, updateReelStatus, type Reel } from './reels.repository';
 import { getAdapter } from '../../platforms/adapterRegistry';
+import type { PlatformId } from '../../platforms/types';
 
 export type PublishReelResult = {
   reel: Reel;
@@ -30,7 +31,7 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
   if (!reel.video_url) throw new Error('Missing video_url');
 
   try {
-    const platform = 'instagram' as const;
+    const platform = reel.platform as PlatformId;
     const adapter = getAdapter(platform);
 
     const result = await adapter.publish({

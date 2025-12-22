@@ -1,10 +1,12 @@
 import { randomUUID } from 'crypto';
+import type { PlatformId } from '../../platforms/types';
 
 export type FeedPostStatus = 'draft' | 'published' | 'failed';
 
 export type FeedPost = {
   id: string;
   brand_id: string;
+  platform: PlatformId;
   caption: string | null;
   image_url: string | null;
   status: FeedPostStatus;

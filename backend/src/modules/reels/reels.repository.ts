@@ -1,3 +1,5 @@
+import type { PlatformId } from '../../platforms/types';
+
 export type ReelGenerationMethod = 'ai' | 'fallback';
 
 export type ReelStatus = 'draft' | 'generating' | 'ready' | 'published' | 'failed';
@@ -5,6 +7,7 @@ export type ReelStatus = 'draft' | 'generating' | 'ready' | 'published' | 'faile
 export type Reel = {
   id: string;
   brand_id: string;
+  platform: PlatformId;
   input_image_url: string | null;
   video_url: string | null;
   generation_method: ReelGenerationMethod;

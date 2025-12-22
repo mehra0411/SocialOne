@@ -2,6 +2,7 @@ import { getBrandById } from '../brands/brand.repository';
 import { getConnectedInstagramAccountByBrandId } from '../instagram/instagram-accounts.repository';
 import { decryptAccessToken } from '../instagram/token.crypto';
 import { getAdapter } from '../../platforms/adapterRegistry';
+import type { PlatformId } from '../../platforms/types';
 import { getFeedPostById, updateFeedPostStatus, type FeedPost } from './feed.repository';
 import { randomUUID } from 'crypto';
 
@@ -96,7 +97,7 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
 
   try {
     const caption = post.caption ?? '';
-    const platform = 'instagram' as const;
+    const platform = post.platform as PlatformId;
     const adapter = getAdapter(platform);
 
     const result = await adapter.publish({
