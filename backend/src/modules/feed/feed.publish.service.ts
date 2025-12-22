@@ -3,7 +3,14 @@ import { getConnectedInstagramAccountByBrandId } from '../instagram/instagram-ac
 import { decryptAccessToken } from '../instagram/token.crypto';
 import { getAdapter } from '../../platforms/adapterRegistry';
 import type { PlatformId } from '../../platforms/types';
-import { getFeedPostById, updateFeedPostStatus, type FeedPost } from './feed.repository';
+import {
+  getFeedPostById,
+  markFeedPostFailed,
+  markFeedPostPublishing,
+  markFeedPostPublished,
+  markFeedPostScheduled,
+  type FeedPost,
+} from './feed.repository';
 import { randomUUID } from 'crypto';
 
 function requiredEnv(name: string): string {
@@ -80,7 +87,9 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
   const post = await getFeedPostById(feedPostId);
   if (!post) throw new Error('Feed post not found');
 
-  if (post.status !== 'draft') throw new Error('Feed post is not a draft');
+  if (post.status === 'published') throw new Error('Feed post is not a draft');
+  if (post.published_at && post.scheduled_at) throw new Error('Published posts cannot be re-scheduled');
+  if (post.status === 'publishing') throw new Error('Feed post is already publishing');
 
   const brand = await getBrandById(post.brand_id, userId);
   if (!brand) throw new Error('Forbidden');
@@ -95,7 +104,27 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
   if (!post.image_url) throw new Error('Missing image_url');
   const publicImageUrl = await uploadImageIfNeeded(post.image_url);
 
+  // Scheduled publish path: validate but do NOT publish yet.
+  if (post.scheduled_at) {
+    const when = Date.parse(post.scheduled_at);
+    if (!Number.isFinite(when)) throw new Error('Invalid scheduled_at');
+    if (when <= Date.now()) throw new Error('scheduled_at must be in the future');
+
+    if (post.status !== 'scheduled') {
+      await markFeedPostScheduled(feedPostId);
+    }
+    const updated = (await getFeedPostById(feedPostId)) ?? post;
+    return { feedPost: updated, mediaContainerId: '', instagramMediaId: '' };
+  }
+
   try {
+    // Immediate publish path (supports manual retry for failed posts).
+    if (post.status !== 'draft' && post.status !== 'failed') {
+      throw new Error('Feed post is not a draft');
+    }
+
+    await markFeedPostPublishing(feedPostId);
+
     const caption = post.caption ?? '';
     const platform = post.platform as PlatformId;
     const adapter = getAdapter(platform);
@@ -115,12 +144,12 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
     const mediaContainerId = result.containerId as string;
     const instagramMediaId = result.publishedId as string;
 
-    await updateFeedPostStatus(feedPostId, 'published');
+    await markFeedPostPublished(feedPostId);
     const updated = (await getFeedPostById(feedPostId)) ?? post;
 
     return { feedPost: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
-    await updateFeedPostStatus(feedPostId, 'failed');
+    await markFeedPostFailed(feedPostId);
     throw e;
   }
 }

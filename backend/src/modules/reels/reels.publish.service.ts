@@ -1,7 +1,14 @@
 import { getBrandById } from '../brands/brand.repository';
 import { getConnectedInstagramAccountByBrandId } from '../instagram/instagram-accounts.repository';
 import { decryptAccessToken } from '../instagram/token.crypto';
-import { getReelById, updateReelStatus, type Reel } from './reels.repository';
+import {
+  getReelById,
+  markReelFailed,
+  markReelPublished,
+  markReelPublishing,
+  markReelScheduled,
+  type Reel,
+} from './reels.repository';
 import { getAdapter } from '../../platforms/adapterRegistry';
 import type { PlatformId } from '../../platforms/types';
 
@@ -15,8 +22,8 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
   const reel = await getReelById(reelId);
   if (!reel) throw new Error('Reel not found');
 
-  // Must only allow ready reels.
-  if (reel.status !== 'ready') throw new Error('Reel is not ready');
+  if (reel.published_at && reel.scheduled_at) throw new Error('Published posts cannot be re-scheduled');
+  if (reel.status === 'publishing') throw new Error('Reel is not ready');
 
   // Verify brand ownership (brand → user)
   const brand = await getBrandById(reel.brand_id, userId);
@@ -30,7 +37,25 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
   const accessToken = decryptAccessToken(igAccount.access_token_encrypted);
   if (!reel.video_url) throw new Error('Missing video_url');
 
+  // Scheduled publish path: validate but do NOT publish yet.
+  if (reel.scheduled_at) {
+    const when = Date.parse(reel.scheduled_at);
+    if (!Number.isFinite(when)) throw new Error('Invalid scheduled_at');
+    if (when <= Date.now()) throw new Error('scheduled_at must be in the future');
+
+    if (reel.status !== 'scheduled') {
+      await markReelScheduled(reelId);
+    }
+    const updated = (await getReelById(reelId)) ?? reel;
+    return { reel: updated, mediaContainerId: '', instagramMediaId: '' };
+  }
+
   try {
+    // Immediate publish path: allow 'ready' and manual retry for 'failed' reels (when a video exists).
+    if (reel.status !== 'ready' && reel.status !== 'failed') throw new Error('Reel is not ready');
+
+    await markReelPublishing(reelId);
+
     const platform = reel.platform as PlatformId;
     const adapter = getAdapter(platform);
 
@@ -48,11 +73,11 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
     const mediaContainerId = result.containerId as string;
     const instagramMediaId = result.publishedId as string;
 
-    await updateReelStatus(reelId, 'published');
+    await markReelPublished(reelId);
     const updated = (await getReelById(reelId)) ?? reel;
     return { reel: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
-    await updateReelStatus(reelId, 'failed');
+    await markReelFailed(reelId);
     throw e;
   }
 }

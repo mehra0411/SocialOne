@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { PlatformId } from '../../platforms/types';
 
-export type FeedPostStatus = 'draft' | 'published' | 'failed';
+export type FeedPostStatus = 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
 
 export type FeedPost = {
   id: string;
@@ -11,6 +11,9 @@ export type FeedPost = {
   image_url: string | null;
   status: FeedPostStatus;
   created_at: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+  failed_at: string | null;
 };
 
 type CreateDraftArgs = {
@@ -96,6 +99,62 @@ export async function updateFeedPostStatus(feedPostId: string, status: FeedPostS
       Prefer: 'return=minimal',
     },
     body: JSON.stringify({ status }),
+  });
+}
+
+export async function markFeedPostScheduled(feedPostId: string): Promise<void> {
+  await updateFeedPostStatus(feedPostId, 'scheduled');
+}
+
+export async function markFeedPostPublishing(feedPostId: string): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      failed_at: null,
+    }),
+  });
+}
+
+export async function markFeedPostPublished(feedPostId: string): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      status: 'published',
+      published_at: new Date().toISOString(),
+      failed_at: null,
+    }),
+  });
+}
+
+export async function markFeedPostFailed(feedPostId: string): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      status: 'failed',
+      failed_at: new Date().toISOString(),
+    }),
   });
 }
 

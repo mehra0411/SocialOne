@@ -2,7 +2,7 @@ import type { PlatformId } from '../../platforms/types';
 
 export type ReelGenerationMethod = 'ai' | 'fallback';
 
-export type ReelStatus = 'draft' | 'generating' | 'ready' | 'published' | 'failed';
+export type ReelStatus = 'draft' | 'scheduled' | 'publishing' | 'generating' | 'ready' | 'published' | 'failed';
 
 export type Reel = {
   id: string;
@@ -13,6 +13,9 @@ export type Reel = {
   generation_method: ReelGenerationMethod;
   status: ReelStatus;
   created_at: string;
+  scheduled_at: string | null;
+  published_at: string | null;
+  failed_at: string | null;
 };
 
 function getSupabaseConfig() {
@@ -70,6 +73,62 @@ export async function updateReelStatus(reelId: string, status: ReelStatus): Prom
       Prefer: 'return=minimal',
     },
     body: JSON.stringify({ status }),
+  });
+}
+
+export async function markReelScheduled(reelId: string): Promise<void> {
+  await updateReelStatus(reelId, 'scheduled');
+}
+
+export async function markReelPublishing(reelId: string): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${reelId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      failed_at: null,
+    }),
+  });
+}
+
+export async function markReelPublished(reelId: string): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${reelId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      status: 'published',
+      published_at: new Date().toISOString(),
+      failed_at: null,
+    }),
+  });
+}
+
+export async function markReelFailed(reelId: string): Promise<void> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${reelId}`);
+
+  await supabaseRest<unknown>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      status: 'failed',
+      failed_at: new Date().toISOString(),
+    }),
   });
 }
 
