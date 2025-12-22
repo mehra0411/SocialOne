@@ -10,6 +10,7 @@ import { DraftsPage } from './pages/Drafts';
 import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
 import { buttonClassName } from './ui/button';
+import { AdminMetricsPage } from './pages/AdminMetrics';
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -82,6 +83,19 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       }
                     >
                       Admin
+                    </NavLink>
+                  ) : null}
+                  {user.role === 'super_admin' ? (
+                    <NavLink
+                      to="/admin/metrics"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                        ].join(' ')
+                      }
+                    >
+                      Metrics
                     </NavLink>
                   ) : null}
                 </>
@@ -161,6 +175,7 @@ export default function App() {
 
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/metrics" element={<AdminMetricsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
