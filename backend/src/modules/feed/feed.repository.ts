@@ -158,4 +158,41 @@ export async function markFeedPostFailed(feedPostId: string): Promise<void> {
   });
 }
 
+export async function listDueScheduledFeedPosts(limit: number, nowIso: string): Promise<FeedPost[]> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('status', 'eq.scheduled');
+  qs.set('scheduled_at', `lte.${nowIso}`);
+  qs.set('order', 'scheduled_at.asc');
+  qs.set('limit', String(limit));
+
+  return await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, { method: 'GET' });
+}
+
+/**
+ * Concurrency-safe claim: transitions scheduled -> publishing only if still scheduled and due.
+ * Returns the updated row if claimed; otherwise null.
+ */
+export async function claimDueScheduledFeedPost(feedPostId: string, nowIso: string): Promise<FeedPost | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+  qs.set('status', 'eq.scheduled');
+  qs.set('scheduled_at', `lte.${nowIso}`);
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
 

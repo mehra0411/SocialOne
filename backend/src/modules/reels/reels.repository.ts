@@ -132,6 +132,43 @@ export async function markReelFailed(reelId: string): Promise<void> {
   });
 }
 
+export async function listDueScheduledReels(limit: number, nowIso: string): Promise<Reel[]> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('status', 'eq.scheduled');
+  qs.set('scheduled_at', `lte.${nowIso}`);
+  qs.set('order', 'scheduled_at.asc');
+  qs.set('limit', String(limit));
+
+  return await supabaseRest<Reel[]>(`/rest/v1/reels?${qs.toString()}`, { method: 'GET' });
+}
+
+/**
+ * Concurrency-safe claim: transitions scheduled -> publishing only if still scheduled and due.
+ * Returns the updated row if claimed; otherwise null.
+ */
+export async function claimDueScheduledReel(reelId: string, nowIso: string): Promise<Reel | null> {
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${reelId}`);
+  qs.set('status', 'eq.scheduled');
+  qs.set('scheduled_at', `lte.${nowIso}`);
+  qs.set('select', '*');
+
+  const rows = await supabaseRest<Reel[]>(`/rest/v1/reels?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      status: 'publishing',
+      failed_at: null,
+    }),
+  });
+
+  return rows?.[0] ?? null;
+}
+
 export async function setAiReelResult(args: {
   reelId: string;
   videoUrl: string;
