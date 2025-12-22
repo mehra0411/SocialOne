@@ -2,58 +2,7 @@ import { getBrandById } from '../brands/brand.repository';
 import { getConnectedInstagramAccountByBrandId } from '../instagram/instagram-accounts.repository';
 import { decryptAccessToken } from '../instagram/token.crypto';
 import { getReelById, updateReelStatus, type Reel } from './reels.repository';
-
-async function createReelsMediaContainer(args: {
-  igUserId: string;
-  accessToken: string;
-  videoUrl: string;
-  caption?: string;
-}): Promise<string> {
-  const version = process.env.META_GRAPH_VERSION?.trim() || 'v21.0';
-  const url = new URL(`https://graph.facebook.com/${version}/${args.igUserId}/media`);
-
-  const body = new URLSearchParams({
-    media_type: 'REELS',
-    video_url: args.videoUrl,
-    access_token: args.accessToken,
-  });
-  if (args.caption) body.set('caption', args.caption);
-
-  const resp = await fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-
-  if (!resp.ok) throw new Error(`Meta create reels container failed: ${resp.status}`);
-  const data = (await resp.json()) as { id?: string };
-  if (!data.id) throw new Error('Meta create container returned no id');
-  return data.id;
-}
-
-async function publishInstagramMedia(args: {
-  igUserId: string;
-  accessToken: string;
-  creationId: string;
-}): Promise<string> {
-  const version = process.env.META_GRAPH_VERSION?.trim() || 'v21.0';
-  const url = new URL(`https://graph.facebook.com/${version}/${args.igUserId}/media_publish`);
-  const body = new URLSearchParams({
-    creation_id: args.creationId,
-    access_token: args.accessToken,
-  });
-
-  const resp = await fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-
-  if (!resp.ok) throw new Error(`Meta publish failed: ${resp.status}`);
-  const data = (await resp.json()) as { id?: string };
-  if (!data.id) throw new Error('Meta publish returned no id');
-  return data.id;
-}
+import { getAdapter } from '../../platforms/adapterRegistry';
 
 export type PublishReelResult = {
   reel: Reel;
@@ -81,17 +30,22 @@ export async function publishReel(userId: string, reelId: string): Promise<Publi
   if (!reel.video_url) throw new Error('Missing video_url');
 
   try {
-    const mediaContainerId = await createReelsMediaContainer({
-      igUserId: igAccount.instagram_user_id,
-      accessToken,
-      videoUrl: reel.video_url,
+    const platform = 'instagram' as const;
+    const adapter = getAdapter(platform);
+
+    const result = await adapter.publish({
+      platform,
+      contentType: 'reel',
+      brandId: reel.brand_id,
+      media: { kind: 'video', url: reel.video_url },
+      connection: {
+        accountId: igAccount.instagram_user_id,
+        accessToken,
+      },
     });
 
-    const instagramMediaId = await publishInstagramMedia({
-      igUserId: igAccount.instagram_user_id,
-      accessToken,
-      creationId: mediaContainerId,
-    });
+    const mediaContainerId = result.containerId as string;
+    const instagramMediaId = result.publishedId as string;
 
     await updateReelStatus(reelId, 'published');
     const updated = (await getReelById(reelId)) ?? reel;
