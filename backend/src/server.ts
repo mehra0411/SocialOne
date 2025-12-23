@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Request, Response } from 'express';
+import cors from 'cors';
 
 import adminRoutes from './modules/admin/routes';
 import feedRoutes from './modules/feed/routes';
@@ -8,6 +9,13 @@ import reelsRoutes from './modules/reels/routes';
 import brandsRoutes from './modules/brands/brands.routes';
 
 const app = express();
+
+const corsOptions: cors.CorsOptions = {
+  origin: 'http://localhost:5173',
+  credentials: true,
+};
+
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 
 app.use(express.json());
 

@@ -95,7 +95,7 @@ export function DashboardPage() {
     }
     if (selectedBrandId && brands.some((b) => b.id === selectedBrandId)) return;
     setSelectedBrandId(brands[0]?.id ?? '');
-  }, [brands, selectedBrandId]);
+  }, [activeBrandId, brands, selectedBrandId]);
 
   const selectedBrand = useMemo(
     () => brands.find((b) => b.id === selectedBrandId) ?? null,

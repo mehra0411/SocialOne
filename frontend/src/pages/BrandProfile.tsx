@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useActiveBrand } from '../brands/activeBrand';
-import { apiFetch } from '../lib/api';
 import { buttonClassName } from '../ui/button';
-
-type BrandRow = {
-  id: string;
-  name: string | null;
-  [key: string]: unknown;
-};
 
 type BrandProfileForm = {
   category: string;
@@ -45,58 +38,6 @@ function saveLocalProfile(brandId: string, data: BrandProfileForm) {
   localStorage.setItem(`${PROFILE_KEY_PREFIX}${brandId}`, JSON.stringify(data));
 }
 
-function coerceString(x: unknown): string {
-  if (typeof x === 'string') return x;
-  if (typeof x === 'number') return String(x);
-  return '';
-}
-
-function coerceBoolean(x: unknown): boolean | null {
-  if (typeof x === 'boolean') return x;
-  return null;
-}
-
-function coerceBannedWords(x: unknown): string {
-  if (Array.isArray(x)) return x.map((w) => coerceString(w)).filter(Boolean).join(', ');
-  return coerceString(x);
-}
-
-function friendlyErrorMessage(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  const lower = msg.toLowerCase();
-  if (lower.includes('unauthorized')) return 'Your session has expired. Please log in again.';
-  if (lower.includes('forbidden')) return 'You don’t have access to this brand.';
-  if (lower.includes('network') || lower.includes('failed to fetch')) {
-    return 'Network issue—please check your connection and try again.';
-  }
-  return 'Something went wrong. Please try again.';
-}
-
-function extractProfileFromBrandRow(brand: BrandRow): Partial<BrandProfileForm> {
-  const colors = (brand.brand_colors as any) ?? (brand.brandColors as any) ?? null;
-  const primaryFromColors = colors && typeof colors === 'object' ? coerceString(colors.primary ?? colors.primaryColor) : '';
-  const secondaryFromColors = colors && typeof colors === 'object' ? coerceString(colors.secondary ?? colors.secondaryColor) : '';
-
-  return {
-    category: coerceString((brand as any).category ?? (brand as any).niche),
-    targetAudience: coerceString((brand as any).target_audience ?? (brand as any).targetAudience ?? (brand as any).audience),
-
-    brandVoice: coerceString((brand as any).brand_voice ?? (brand as any).brandVoice ?? (brand as any).voice),
-    toneDescription: coerceString((brand as any).tone_description ?? (brand as any).toneDescription ?? (brand as any).tone),
-    styleDoDont: coerceString((brand as any).style_do_dont ?? (brand as any).styleDoDont),
-
-    preferredLanguage: coerceString((brand as any).preferred_language ?? (brand as any).preferredLanguage ?? (brand as any).language),
-    bannedWords: coerceBannedWords((brand as any).banned_words ?? (brand as any).bannedWords),
-    emojisAllowed:
-      coerceBoolean((brand as any).emojis_allowed ?? (brand as any).emojisAllowed) ??
-      true, // default (optional field)
-
-    primaryColor: coerceString((brand as any).primary_color ?? (brand as any).primaryColor) || primaryFromColors,
-    secondaryColor: coerceString((brand as any).secondary_color ?? (brand as any).secondaryColor) || secondaryFromColors,
-    fontStyle: coerceString((brand as any).font_style ?? (brand as any).fontStyle),
-  };
-}
-
 const emptyForm: BrandProfileForm = {
   category: '',
   targetAudience: '',
@@ -112,11 +53,8 @@ const emptyForm: BrandProfileForm = {
 };
 
 export function BrandProfilePage() {
-  const { activeBrandId, activeBrandName, setActiveBrand } = useActiveBrand();
+  const { activeBrandId, activeBrandName } = useActiveBrand();
   const [form, setForm] = useState<BrandProfileForm>(emptyForm);
-
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -127,40 +65,8 @@ export function BrandProfilePage() {
   const titleName = activeBrandName ?? `Brand ${activeBrandId.slice(0, 8)}…`;
 
   useEffect(() => {
-    let mounted = true;
-    setLoadError(null);
-    setLoading(true);
-
-    (async () => {
-      try {
-        const brands = await apiFetch<BrandRow[]>('/api/brands');
-        const active = (Array.isArray(brands) ? brands : []).find((b) => b.id === activeBrandId) ?? null;
-
-        const fromApi = active ? extractProfileFromBrandRow(active) : {};
-        const fromLocal = loadLocalProfile(activeBrandId) ?? {};
-
-        const merged: BrandProfileForm = { ...emptyForm, ...fromApi, ...fromLocal };
-
-        if (!mounted) return;
-        setForm(merged);
-
-        // If backend provided a newer name, keep Active Brand name in sync.
-        if (active && active.name && active.name !== activeBrandName) {
-          setActiveBrand({ id: active.id, name: active.name });
-        }
-      } catch (e) {
-        if (!mounted) return;
-        setLoadError(friendlyErrorMessage(e));
-      } finally {
-        if (!mounted) return;
-        setLoading(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const fromLocal = loadLocalProfile(activeBrandId) ?? {};
+    setForm({ ...emptyForm, ...fromLocal });
   }, [activeBrandId]);
 
   const isDirty = useMemo(() => {
@@ -192,19 +98,6 @@ export function BrandProfilePage() {
             </Link>
           </div>
         </div>
-
-        {loadError ? (
-          <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
-            {loadError}{' '}
-            <button className="ml-2 underline" onClick={() => window.location.reload()}>
-              Retry
-            </button>
-          </div>
-        ) : null}
-
-        {loading ? (
-          <div className="mt-4 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">Loading profile…</div>
-        ) : null}
       </div>
 
       <form
@@ -218,19 +111,32 @@ export function BrandProfilePage() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
               <label className="text-sm font-medium text-zinc-900">Category / Niche</label>
-              <input
+              <select
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
                 value={form.category}
                 onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-              />
+              >
+                <option value="">(optional)</option>
+                <option value="Ecommerce">Ecommerce</option>
+                <option value="SaaS">SaaS</option>
+                <option value="Local Business">Local Business</option>
+                <option value="Creator">Creator</option>
+                <option value="Agency">Agency</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div className="grid gap-1">
               <label className="text-sm font-medium text-zinc-900">Target Audience</label>
-              <input
+              <select
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
                 value={form.targetAudience}
                 onChange={(e) => setForm((p) => ({ ...p, targetAudience: e.target.value }))}
-              />
+              >
+                <option value="">(optional)</option>
+                <option value="B2C">B2C</option>
+                <option value="B2B">B2B</option>
+                <option value="Both">Both</option>
+              </select>
             </div>
           </div>
         </section>
@@ -387,12 +293,11 @@ export function BrandProfilePage() {
                   setSaveSuccess(null);
                   setSaving(true);
                   try {
-                    // TODO: Replace this local save with a real backend update once an official endpoint exists.
-                    // IMPORTANT: Do NOT invent endpoints here. Only wire to backend when it supports brand profile updates.
+                    // Local-only profile (Step 2): no backend calls.
                     saveLocalProfile(activeBrandId, form);
-                    setSaveSuccess('Saved locally. (Backend profile saving coming soon.)');
+                    setSaveSuccess('Saved locally.');
                   } catch (e) {
-                    setSaveError(friendlyErrorMessage(e));
+                    setSaveError(e instanceof Error ? e.message : 'Save failed');
                   } finally {
                     setSaving(false);
                   }
