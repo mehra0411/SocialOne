@@ -12,6 +12,7 @@ import { SignupPage } from './pages/Signup';
 import { buttonClassName } from './ui/button';
 import { AdminMetricsPage } from './pages/AdminMetrics';
 import { useActiveBrand } from './brands/activeBrand';
+import { BrandProfilePage } from './pages/BrandProfile';
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -51,6 +52,17 @@ function AppShell({ children }: { children: React.ReactNode }) {
                     }
                   >
                     My Brands
+                  </NavLink>
+                  <NavLink
+                    to="/brand/profile"
+                    className={({ isActive }) =>
+                      [
+                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
+                      ].join(' ')
+                    }
+                  >
+                    Brand Profile
                   </NavLink>
                   <NavLink
                     to="/drafts"
@@ -176,6 +188,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/brands" element={<BrandsPage />} />
+          <Route path="/brand/profile" element={<BrandProfilePage />} />
           <Route path="/drafts" element={<DraftsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
         </Route>
