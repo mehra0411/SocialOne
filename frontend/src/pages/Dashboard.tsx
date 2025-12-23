@@ -1,7 +1,9 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { uploadImageAndGetPublicUrl } from '../lib/storage';
 import { buttonClassName } from '../ui/button';
+import { useActiveBrand } from '../brands/activeBrand';
 
 type BrandOption = { id: string; name: string };
 type FeedPost = {
@@ -23,32 +25,15 @@ type Reel = {
   created_at: string;
 };
 
-const BRANDS_KEY = 'socialone.brands';
-
-function loadBrands(): BrandOption[] {
-  try {
-    const raw = localStorage.getItem(BRANDS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((x) => x as Partial<BrandOption>)
-      .filter((b) => typeof b.id === 'string' && typeof b.name === 'string') as BrandOption[];
-  } catch {
-    return [];
-  }
-}
-
-function saveBrands(brands: BrandOption[]) {
-  localStorage.setItem(BRANDS_KEY, JSON.stringify(brands));
-}
+type ApiBrand = { id: string; name: string | null };
 
 export function DashboardPage() {
-  const [brands, setBrands] = useState<BrandOption[]>(() => loadBrands());
-  const [selectedBrandId, setSelectedBrandId] = useState<string>(() => loadBrands()[0]?.id ?? '');
+  const { activeBrandId, setActiveBrand } = useActiveBrand();
 
-  const [newBrandName, setNewBrandName] = useState('');
-  const [newBrandId, setNewBrandId] = useState('');
+  const [brands, setBrands] = useState<BrandOption[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(false);
+  const [brandsError, setBrandsError] = useState<string | null>(null);
+  const [selectedBrandId, setSelectedBrandId] = useState<string>('');
 
   const [imageUrl, setImageUrl] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -68,10 +53,38 @@ export function DashboardPage() {
   const [reelPublishing, setReelPublishing] = useState(false);
   const [reelError, setReelError] = useState<string | null>(null);
 
-  useEffect(() => saveBrands(brands), [brands]);
+  useEffect(() => {
+    let mounted = true;
+    setBrandsError(null);
+    setBrandsLoading(true);
+    (async () => {
+      try {
+        const rows = await apiFetch<ApiBrand[]>('/api/brands');
+        const next: BrandOption[] = (Array.isArray(rows) ? rows : [])
+          .filter((b) => typeof b?.id === 'string')
+          .map((b) => ({ id: b.id, name: b.name ?? 'Untitled brand' }));
+        if (!mounted) return;
+        setBrands(next);
+      } catch (e) {
+        if (!mounted) return;
+        setBrandsError(e instanceof Error ? e.message : 'Failed to load brands');
+      } finally {
+        if (!mounted) return;
+        setBrandsLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     // Keep selection valid if list changes.
+    if (activeBrandId && brands.some((b) => b.id === activeBrandId)) {
+      setSelectedBrandId(activeBrandId);
+      return;
+    }
     if (selectedBrandId && brands.some((b) => b.id === selectedBrandId)) return;
     setSelectedBrandId(brands[0]?.id ?? '');
   }, [brands, selectedBrandId]);
@@ -125,13 +138,18 @@ export function DashboardPage() {
             <div className="grid gap-1">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-zinc-900">Brand</label>
-                <span className="text-xs text-zinc-500">Local selector (until brands API exists)</span>
+                {brandsLoading ? <span className="text-xs text-zinc-500">Loading…</span> : null}
               </div>
 
               <select
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900"
                 value={selectedBrandId}
-                onChange={(e) => setSelectedBrandId(e.target.value)}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedBrandId(id);
+                  const b = brands.find((x) => x.id === id);
+                  if (b) setActiveBrand({ id: b.id, name: b.name });
+                }}
               >
                 <option value="" disabled>
                   Select a brand…
@@ -142,38 +160,22 @@ export function DashboardPage() {
                   </option>
                 ))}
               </select>
+              {brandsError ? (
+                <div className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">{brandsError}</div>
+              ) : null}
+              {!brandsLoading && brands.length === 0 ? (
+                <div className="mt-2 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+                  <div className="font-medium text-zinc-900">No brands yet</div>
+                  <div className="text-zinc-600">
+                    Create one on{' '}
+                    <Link to="/brands" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+                      My Brands
+                    </Link>{' '}
+                    to start.
+                  </div>
+                </div>
+              ) : null}
             </div>
-
-            <details className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-              <summary className="cursor-pointer text-sm font-medium text-zinc-900">Add brand to selector</summary>
-              <div className="mt-3 grid gap-2">
-                <input
-                  className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900"
-                  placeholder="Brand name (e.g. Acme)"
-                  value={newBrandName}
-                  onChange={(e) => setNewBrandName(e.target.value)}
-                />
-                <input
-                  className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900"
-                  placeholder="Brand id (uuid)"
-                  value={newBrandId}
-                  onChange={(e) => setNewBrandId(e.target.value)}
-                />
-                <button
-                  className={buttonClassName({ variant: 'primary' })}
-                  disabled={!newBrandName.trim() || !newBrandId.trim()}
-                  onClick={() => {
-                    const next: BrandOption = { name: newBrandName.trim(), id: newBrandId.trim() };
-                    setBrands((prev) => [next, ...prev.filter((b) => b.id !== next.id)]);
-                    setNewBrandName('');
-                    setNewBrandId('');
-                    setSelectedBrandId(next.id);
-                  }}
-                >
-                  Add brand
-                </button>
-              </div>
-            </details>
 
             <div className="grid gap-1">
               <label className="text-sm font-medium text-zinc-900">Image URL (optional)</label>

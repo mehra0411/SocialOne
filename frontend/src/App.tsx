@@ -11,9 +11,11 @@ import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
 import { buttonClassName } from './ui/button';
 import { AdminMetricsPage } from './pages/AdminMetrics';
+import { useActiveBrand } from './brands/activeBrand';
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
+  const { activeBrandId, activeBrandName } = useActiveBrand();
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -131,6 +133,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             {user ? (
               <>
+                {activeBrandId ? (
+                  <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+                    Brand: {activeBrandName ?? activeBrandId.slice(0, 8)}
+                  </span>
+                ) : null}
                 <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
                   {user.role}
                 </span>

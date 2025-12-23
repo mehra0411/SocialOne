@@ -1,7 +1,9 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { buttonClassName } from '../ui/button';
 import { Skeleton } from '../ui/Skeleton';
+import { useActiveBrand } from '../brands/activeBrand';
 
 type BrandOption = { id: string; name: string };
 
@@ -29,21 +31,7 @@ type Reel = {
   created_at: string;
 };
 
-const BRANDS_KEY = 'socialone.brands';
-
-function loadBrands(): BrandOption[] {
-  try {
-    const raw = localStorage.getItem(BRANDS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((x) => x as Partial<BrandOption>)
-      .filter((b) => typeof b.id === 'string' && typeof b.name === 'string') as BrandOption[];
-  } catch {
-    return [];
-  }
-}
+type ApiBrand = { id: string; name: string | null };
 
 function formatDate(iso: string | null): string {
   if (!iso) return '-';
@@ -90,8 +78,12 @@ function friendlyErrorMessage(err: unknown): string {
 type PostType = 'feed' | 'reel';
 
 export function DraftsPage() {
-  const [brands] = useState<BrandOption[]>(() => loadBrands());
-  const [brandId, setBrandId] = useState<string>(() => loadBrands()[0]?.id ?? '');
+  const { activeBrandId, setActiveBrand } = useActiveBrand();
+
+  const [brands, setBrands] = useState<BrandOption[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(false);
+  const [brandsError, setBrandsError] = useState<string | null>(null);
+  const [brandId, setBrandId] = useState<string>('');
   const [tab, setTab] = useState<PostType>('feed');
 
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
@@ -117,6 +109,41 @@ export function DraftsPage() {
   });
   const [publishNowSubmitting, setPublishNowSubmitting] = useState(false);
   const [publishNowError, setPublishNowError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    setBrandsError(null);
+    setBrandsLoading(true);
+    (async () => {
+      try {
+        const rows = await apiFetch<ApiBrand[]>('/api/brands');
+        const next: BrandOption[] = (Array.isArray(rows) ? rows : [])
+          .filter((b) => typeof b?.id === 'string')
+          .map((b) => ({ id: b.id, name: b.name ?? 'Untitled brand' }));
+        if (!mounted) return;
+        setBrands(next);
+      } catch (e) {
+        if (!mounted) return;
+        setBrandsError(friendlyErrorMessage(e));
+      } finally {
+        if (!mounted) return;
+        setBrandsLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeBrandId && brands.some((b) => b.id === activeBrandId)) {
+      setBrandId(activeBrandId);
+      return;
+    }
+    if (brandId && brands.some((b) => b.id === brandId)) return;
+    setBrandId(brands[0]?.id ?? '');
+  }, [activeBrandId, brandId, brands]);
 
   const brandName = useMemo(() => brands.find((b) => b.id === brandId)?.name ?? '', [brands, brandId]);
 
@@ -167,7 +194,12 @@ export function DraftsPage() {
         <select
           className="w-full max-w-md rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
           value={brandId}
-          onChange={(e) => setBrandId(e.target.value)}
+          onChange={(e) => {
+            const id = e.target.value;
+            setBrandId(id);
+            const b = brands.find((x) => x.id === id);
+            if (b) setActiveBrand({ id: b.id, name: b.name });
+          }}
         >
           <option value="" disabled>
             Select a brand…
@@ -178,7 +210,20 @@ export function DraftsPage() {
             </option>
           ))}
         </select>
-        <p className="text-xs text-zinc-500">Using the local brand selector list. (No new backend calls added.)</p>
+        {brandsLoading ? <p className="text-xs text-zinc-500">Loading brands…</p> : null}
+        {brandsError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{brandsError}</div> : null}
+        {!brandsLoading && brands.length === 0 ? (
+          <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+            <div className="font-medium text-zinc-900">No brands yet</div>
+            <div className="text-zinc-600">
+              Create one on{' '}
+              <Link to="/brands" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+                My Brands
+              </Link>{' '}
+              to start scheduling posts.
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
