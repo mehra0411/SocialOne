@@ -12,7 +12,9 @@ type FeedPost = {
   brand_id: string;
   caption: string | null;
   image_url: string | null;
-  status: 'draft' | 'published' | 'failed';
+  status: 'draft' | 'published' | 'failed' | 'scheduled' | 'publishing';
+  instagram_post_id?: string | null;
+  error_message?: string | null;
   created_at: string;
 };
 
@@ -47,6 +49,7 @@ export function DashboardPage() {
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
 
   // Reels UI state
   const [reelFile, setReelFile] = useState<File | null>(null);
@@ -256,6 +259,7 @@ export function DashboardPage() {
                 disabled={!selectedBrandId || generating}
                 onClick={async () => {
                   setError(null);
+                  setPublishSuccess(null);
                   setDraft(null);
                   setGenerating(true);
                   try {
@@ -285,14 +289,20 @@ export function DashboardPage() {
                 onClick={async () => {
                   if (!draft) return;
                   setError(null);
+                  setPublishSuccess(null);
                   setPublishing(true);
                   try {
-                    await apiFetch('/api/feed/publish', {
+                    const resp = await apiFetch<{
+                      feedPost: FeedPost;
+                      instagramMediaId: string;
+                      mediaContainerId: string;
+                    }>('/api/feed/publish', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ brandId: selectedBrandId, feedPostId: draft.id }),
                     });
-                    setDraft((prev) => (prev ? { ...prev, status: 'published' } : prev));
+                    setDraft(resp.feedPost);
+                    setPublishSuccess(`Posted to Instagram (id: ${resp.instagramMediaId})`);
                   } catch (e) {
                     setError(e instanceof Error ? e.message : 'Failed to publish');
                     setDraft((prev) => (prev ? { ...prev, status: 'failed' } : prev));
@@ -304,6 +314,10 @@ export function DashboardPage() {
                 {publishing ? 'Publishing…' : 'Publish'}
               </button>
             </div>
+
+            {publishSuccess ? (
+              <div className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{publishSuccess}</div>
+            ) : null}
           </div>
 
           <div className="grid gap-3">
