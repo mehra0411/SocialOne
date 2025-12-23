@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api';
 import { uploadImageAndGetPublicUrl } from '../lib/storage';
 import { buttonClassName } from '../ui/button';
 import { useActiveBrand } from '../brands/activeBrand';
+import { fetchInstagramPlatformStatus } from '../lib/platformStatus';
 
 type BrandOption = { id: string; name: string };
 type FeedPost = {
@@ -34,6 +35,10 @@ export function DashboardPage() {
   const [brandsLoading, setBrandsLoading] = useState(false);
   const [brandsError, setBrandsError] = useState<string | null>(null);
   const [selectedBrandId, setSelectedBrandId] = useState<string>('');
+
+  const [igLoading, setIgLoading] = useState(false);
+  const [igConnected, setIgConnected] = useState<boolean | null>(null);
+  const [igHint, setIgHint] = useState<string | null>(null);
 
   const [imageUrl, setImageUrl] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -93,6 +98,39 @@ export function DashboardPage() {
     () => brands.find((b) => b.id === selectedBrandId) ?? null,
     [brands, selectedBrandId],
   );
+
+  useEffect(() => {
+    if (!selectedBrandId) {
+      setIgConnected(null);
+      setIgHint(null);
+      return;
+    }
+
+    let mounted = true;
+    setIgHint(null);
+    setIgLoading(true);
+    (async () => {
+      try {
+        const status = await fetchInstagramPlatformStatus(selectedBrandId);
+        if (!mounted) return;
+        setIgConnected(status.connected);
+        if (!status.connected) {
+          setIgHint('Connect Instagram to publish.');
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setIgConnected(null);
+        setIgHint('Unable to verify Instagram connection right now.');
+      } finally {
+        if (!mounted) return;
+        setIgLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedBrandId]);
 
   // Status polling for reels
   useEffect(() => {
@@ -202,6 +240,16 @@ export function DashboardPage() {
 
             {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
 
+            {igHint ? (
+              <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+                {igHint}{' '}
+                <Link to="/brand/platforms" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+                  Connect Instagram
+                </Link>
+                .
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 className={buttonClassName({ variant: 'primary' })}
@@ -233,7 +281,7 @@ export function DashboardPage() {
 
               <button
                 className={buttonClassName({ variant: 'secondary' })}
-                disabled={!draft || draft.status !== 'draft' || publishing}
+                disabled={!draft || draft.status !== 'draft' || publishing || igLoading || igConnected !== true}
                 onClick={async () => {
                   if (!draft) return;
                   setError(null);
@@ -403,7 +451,7 @@ export function DashboardPage() {
 
             <button
               className={buttonClassName({ variant: 'secondary' })}
-              disabled={!reelId || reel?.status !== 'ready' || reelPublishing}
+              disabled={!reelId || reel?.status !== 'ready' || reelPublishing || igLoading || igConnected !== true}
               onClick={async () => {
                 if (!reelId) return;
                 setReelError(null);

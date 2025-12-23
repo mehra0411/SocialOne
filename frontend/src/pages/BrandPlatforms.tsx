@@ -8,19 +8,12 @@ type OAuthStartResponse = {
   redirectUrl: string;
 };
 
-const IG_CONNECTED_PREFIX = 'socialone.platform.instagram.connected.';
-
-function getConnectedKey(brandId: string): string {
-  return `${IG_CONNECTED_PREFIX}${brandId}`;
-}
-
-function isInstagramConnectedOptimistic(brandId: string): boolean {
-  return localStorage.getItem(getConnectedKey(brandId)) === '1';
-}
-
-function setInstagramConnectedOptimistic(brandId: string) {
-  localStorage.setItem(getConnectedKey(brandId), '1');
-}
+type PlatformStatusResponse = {
+  platform: 'instagram';
+  connected: boolean;
+  accountName: string | null;
+  expiresAt: string | null;
+};
 
 function friendlyErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
@@ -30,7 +23,7 @@ function friendlyErrorMessage(err: unknown): string {
   if (lower.includes('network') || lower.includes('failed to fetch')) {
     return 'Network issue—please check your connection and try again.';
   }
-  return 'Could not start Instagram connection. Please try again.';
+  return msg || 'Something went wrong. Please try again.';
 }
 
 export function BrandPlatformsPage() {
@@ -40,28 +33,54 @@ export function BrandPlatformsPage() {
 
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [justConnected, setJustConnected] = useState(false);
+
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [status, setStatus] = useState<PlatformStatusResponse | null>(null);
+  const [oauthSuccessHint, setOauthSuccessHint] = useState(false);
 
   if (!activeBrandId) return <Navigate to="/brands" replace />;
 
   const brandLabel = activeBrandName ?? `Brand ${activeBrandId.slice(0, 8)}…`;
 
-  const connected = useMemo(() => {
-    if (justConnected) return true;
-    return isInstagramConnectedOptimistic(activeBrandId);
-  }, [activeBrandId, justConnected]);
+  const derivedState = useMemo(() => {
+    if (!status) return { state: 'unknown' as const, connected: false, accountName: null, expiresAt: null };
+    if (status.connected) return { state: 'connected' as const, connected: true, accountName: status.accountName, expiresAt: status.expiresAt };
+    // Distinguish expired vs never-connected without changing response shape:
+    // - expired: a record exists but connected=false (we return accountName if we have an identifier)
+    // - not_connected: no record (accountName null)
+    if (status.accountName) return { state: 'expired' as const, connected: false, accountName: status.accountName, expiresAt: status.expiresAt };
+    return { state: 'not_connected' as const, connected: false, accountName: null, expiresAt: null };
+  }, [status]);
+
+  async function refreshStatus() {
+    setStatusError(null);
+    setStatusLoading(true);
+    try {
+      const resp = await apiFetch<PlatformStatusResponse>(`/api/brands/${activeBrandId}/platforms`);
+      setStatus(resp);
+    } catch (e) {
+      setStatusError(friendlyErrorMessage(e));
+    } finally {
+      setStatusLoading(false);
+    }
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const success = params.get('success');
     if (success === '1') {
-      setInstagramConnectedOptimistic(activeBrandId);
-      setJustConnected(true);
+      setOauthSuccessHint(true);
       setError(null);
       // Clean the URL so refreshes don't keep showing the success "event".
       params.delete('success');
       navigate({ pathname: location.pathname, search: params.toString() ? `?${params.toString()}` : '' }, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBrandId]);
+
+  useEffect(() => {
+    void refreshStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrandId]);
 
@@ -103,21 +122,37 @@ export function BrandPlatformsPage() {
             <span
               className={[
                 'rounded-full px-2 py-1 text-xs font-medium',
-                connected ? 'bg-green-50 text-green-800' : 'bg-zinc-100 text-zinc-700',
+                derivedState.state === 'connected'
+                  ? 'bg-green-50 text-green-800'
+                  : derivedState.state === 'expired'
+                    ? 'bg-amber-50 text-amber-800'
+                    : 'bg-zinc-100 text-zinc-700',
               ].join(' ')}
             >
-              {connected ? 'Connected' : 'Not connected'}
+              {statusLoading ? 'Checking…' : derivedState.state === 'connected' ? 'Connected' : derivedState.state === 'expired' ? 'Expired' : 'Not connected'}
             </span>
           </div>
         </div>
 
-        {!connected ? (
+        {oauthSuccessHint ? (
+          <div className="mt-4 rounded-xl bg-green-50 p-3 text-sm text-green-900">
+            Connection completed. Verifying status…
+          </div>
+        ) : null}
+
+        {statusError ? (
+          <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            {statusError}{' '}
+            <button className="ml-2 underline" onClick={() => void refreshStatus()} disabled={statusLoading}>
+              Retry
+            </button>
+          </div>
+        ) : null}
+
+        {derivedState.state !== 'connected' ? (
           <div className="mt-4 space-y-3">
             <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
               You’ll be redirected to Meta to approve access, then returned here.
-              <div className="mt-1 text-xs text-zinc-500">
-                Note: We currently show connection success optimistically. {/* TODO: replace with real status check once backend exposes a status endpoint. */}
-              </div>
             </div>
 
             {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
@@ -142,7 +177,7 @@ export function BrandPlatformsPage() {
                 }
               }}
             >
-              {connecting ? 'Redirecting…' : 'Connect Instagram'}
+              {connecting ? 'Redirecting…' : derivedState.state === 'expired' ? 'Reconnect Instagram' : 'Connect Instagram'}
             </button>
           </div>
         ) : (
@@ -150,9 +185,13 @@ export function BrandPlatformsPage() {
             <div className="font-medium">Instagram connected</div>
             <div className="mt-1 text-green-800">
               You can now publish content for this brand (where supported).
-              <div className="mt-1 text-xs text-green-900/80">
-                {/* TODO: Replace optimistic state with a backend status check (no endpoint exists today). */}
-                This status is currently optimistic until the backend exposes a connection status endpoint.
+              <div className="mt-2 grid gap-1 text-sm text-green-900">
+                <div>
+                  <span className="font-medium">Account:</span> {derivedState.accountName ?? '—'}
+                </div>
+                <div>
+                  <span className="font-medium">Expires:</span> {derivedState.expiresAt ?? '—'}
+                </div>
               </div>
             </div>
           </div>

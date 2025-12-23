@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api';
 import { buttonClassName } from '../ui/button';
 import { Skeleton } from '../ui/Skeleton';
 import { useActiveBrand } from '../brands/activeBrand';
+import { fetchInstagramPlatformStatus } from '../lib/platformStatus';
 
 type BrandOption = { id: string; name: string };
 
@@ -86,6 +87,10 @@ export function DraftsPage() {
   const [brandId, setBrandId] = useState<string>('');
   const [tab, setTab] = useState<PostType>('feed');
 
+  const [igLoading, setIgLoading] = useState(false);
+  const [igConnected, setIgConnected] = useState<boolean | null>(null);
+  const [igHint, setIgHint] = useState<string | null>(null);
+
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,6 +151,39 @@ export function DraftsPage() {
   }, [activeBrandId, brandId, brands]);
 
   const brandName = useMemo(() => brands.find((b) => b.id === brandId)?.name ?? '', [brands, brandId]);
+
+  useEffect(() => {
+    if (!brandId) {
+      setIgConnected(null);
+      setIgHint(null);
+      return;
+    }
+
+    let mounted = true;
+    setIgHint(null);
+    setIgLoading(true);
+    (async () => {
+      try {
+        const status = await fetchInstagramPlatformStatus(brandId);
+        if (!mounted) return;
+        setIgConnected(status.connected);
+        if (!status.connected) {
+          setIgHint('Connect Instagram to publish.');
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setIgConnected(null);
+        setIgHint('Unable to verify Instagram connection right now.');
+      } finally {
+        if (!mounted) return;
+        setIgLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [brandId]);
 
   async function refresh() {
     if (!brandId) return;
@@ -226,6 +264,16 @@ export function DraftsPage() {
         ) : null}
       </div>
 
+      {igHint ? (
+        <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+          {igHint}{' '}
+          <Link to="/brand/platforms" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+            Connect Instagram
+          </Link>
+          .
+        </div>
+      ) : null}
+
       {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
       {error ? (
         <div className="flex">
@@ -304,7 +352,8 @@ export function DraftsPage() {
                 const canSchedule = !isPublishingOrPublished;
                 const canPublishNow = status === 'scheduled' || status === 'failed';
                 const platform = r.platform ?? 'instagram';
-                const actionsBusy = scheduleSubmitting || publishNowSubmitting;
+                const actionsBusy = scheduleSubmitting || publishNowSubmitting || igLoading;
+                const publishBlocked = igConnected !== true;
 
                 return (
                   <tr key={r.id} className="border-b border-zinc-100">
@@ -339,7 +388,7 @@ export function DraftsPage() {
                         </button>
                         <button
                           className={buttonClassName({ variant: 'primary', size: 'sm', className: 'rounded-lg' })}
-                          disabled={!canPublishNow || isPublishingOrPublished || actionsBusy}
+                          disabled={!canPublishNow || isPublishingOrPublished || actionsBusy || publishBlocked}
                           onClick={() => {
                             setPublishNowError(null);
                             setPublishNowModal({ open: true, postType: tab, postId: r.id });
