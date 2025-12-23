@@ -171,7 +171,7 @@ export async function runScheduledPublishes(
       });
 
       const ids = await publishScheduledFeedPost(claimed);
-      await markFeedPostPublished(claimed.id);
+      await markFeedPostPublished(claimed.id, ids.publishedId);
       result.published += 1;
 
       await tryWritePublishAttempt({
@@ -192,7 +192,7 @@ export async function runScheduledPublishes(
         publishedId: ids.publishedId,
       });
     } catch (e) {
-      await markFeedPostFailed(claimed.id);
+      await markFeedPostFailed(claimed.id, e instanceof Error ? e.message : String(e));
       result.failed += 1;
 
       await tryWritePublishAttempt({
@@ -247,7 +247,7 @@ export async function runScheduledPublishes(
         });
 
         const ids = await publishScheduledFeedPost(claimed);
-        await markFeedPostPublished(claimed.id);
+        await markFeedPostPublished(claimed.id, ids.publishedId);
         result.published += 1;
 
         await tryWritePublishAttempt({
@@ -270,7 +270,7 @@ export async function runScheduledPublishes(
           publishedId: ids.publishedId,
         });
       } catch (e) {
-        await markFeedPostFailed(claimed.id);
+        await markFeedPostFailed(claimed.id, e instanceof Error ? e.message : String(e));
         result.failed += 1;
 
         await tryWritePublishAttempt({

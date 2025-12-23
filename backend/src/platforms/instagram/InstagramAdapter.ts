@@ -1,6 +1,21 @@
 import type { PlatformAdapter } from '../PlatformAdapter';
 import type { PublishRequest, PublishResult } from '../types';
 
+async function readMetaError(resp: Response): Promise<string> {
+  try {
+    const data = (await resp.json()) as any;
+    const msg = data?.error?.message ?? data?.message ?? '';
+    const code = data?.error?.code ?? data?.code;
+    const sub = data?.error?.error_subcode ?? data?.error_subcode;
+    const parts = [msg].filter(Boolean);
+    if (code != null) parts.push(`code=${code}`);
+    if (sub != null) parts.push(`subcode=${sub}`);
+    return parts.length ? parts.join(' ') : `HTTP ${resp.status}`;
+  } catch {
+    return `HTTP ${resp.status}`;
+  }
+}
+
 export async function createInstagramMediaContainer(args: {
   igUserId: string;
   accessToken: string;
@@ -21,7 +36,7 @@ export async function createInstagramMediaContainer(args: {
     body,
   });
 
-  if (!resp.ok) throw new Error(`Meta create container failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`Meta create container failed: ${await readMetaError(resp)}`);
   const data = (await resp.json()) as { id?: string };
   if (!data.id) throw new Error('Meta create container returned no id');
   return data.id;
@@ -49,7 +64,7 @@ export async function createReelsMediaContainer(args: {
     body,
   });
 
-  if (!resp.ok) throw new Error(`Meta create reels container failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`Meta create reels container failed: ${await readMetaError(resp)}`);
   const data = (await resp.json()) as { id?: string };
   if (!data.id) throw new Error('Meta create container returned no id');
   return data.id;
@@ -73,7 +88,7 @@ export async function publishInstagramMedia(args: {
     body,
   });
 
-  if (!resp.ok) throw new Error(`Meta publish failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`Meta publish failed: ${await readMetaError(resp)}`);
   const data = (await resp.json()) as { id?: string };
   if (!data.id) throw new Error('Meta publish returned no id');
   return data.id;

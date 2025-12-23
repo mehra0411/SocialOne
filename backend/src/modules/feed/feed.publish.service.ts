@@ -137,7 +137,7 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
     const mediaContainerId = result.containerId as string;
     const instagramMediaId = result.publishedId as string;
 
-    await markFeedPostPublished(feedPostId);
+    await markFeedPostPublished(feedPostId, instagramMediaId);
     await tryWritePublishAttempt({
       post_id: working.id,
       post_type: 'feed',
@@ -150,7 +150,7 @@ export async function publishFeedPost(userId: string, feedPostId: string): Promi
 
     return { feedPost: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
-    await markFeedPostFailed(feedPostId);
+    await markFeedPostFailed(feedPostId, e instanceof Error ? e.message : String(e));
     await tryWritePublishAttempt({
       post_id: post.id,
       post_type: 'feed',
@@ -244,7 +244,7 @@ export async function manualPublishFeedPost(userId: string, feedPostId: string):
     const mediaContainerId = result.containerId as string;
     const instagramMediaId = result.publishedId as string;
 
-    await markFeedPostPublished(feedPostId);
+    await markFeedPostPublished(feedPostId, instagramMediaId);
     await tryWritePublishAttempt({
       post_id: claimed.id,
       post_type: 'feed',
@@ -256,7 +256,7 @@ export async function manualPublishFeedPost(userId: string, feedPostId: string):
     const updated = (await getFeedPostById(feedPostId)) ?? claimed;
     return { feedPost: updated, mediaContainerId, instagramMediaId };
   } catch (e) {
-    await markFeedPostFailed(feedPostId);
+    await markFeedPostFailed(feedPostId, e instanceof Error ? e.message : String(e));
     const trigger_type = post.status === 'failed' ? 'retry' : 'manual';
     await tryWritePublishAttempt({
       post_id: claimed.id,
