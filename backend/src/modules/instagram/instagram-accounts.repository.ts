@@ -59,4 +59,19 @@ export async function getConnectedInstagramAccountByBrandId(brandId: string): Pr
   return rows[0] ?? null;
 }
 
+export async function getLatestInstagramAccountByBrandId(brandId: string): Promise<InstagramAccount | null> {
+  const qs = new URLSearchParams();
+  qs.set('select', '*');
+  qs.set('brand_id', `eq.${brandId}`);
+  qs.set('order', 'created_at.desc');
+  qs.set('limit', '1');
+
+  const rows = await supabaseRest<InstagramAccount[]>(
+    `/rest/v1/instagram_accounts?${qs.toString()}`,
+    { method: 'GET' },
+  );
+
+  return rows[0] ?? null;
+}
+
 
