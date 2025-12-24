@@ -68,15 +68,16 @@ export function BrandsPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold text-zinc-900">My Brands</h1>
-        <p className="text-sm text-zinc-600">Create a brand, then use it across Dashboard and Drafts.</p>
+        <h1 className="text-xl font-semibold text-zinc-900">Create a Brand</h1>
+        <p className="text-sm text-zinc-600">A brand is your content workspace</p>
+        <p className="text-sm text-zinc-600">You’ll connect social platforms and create content after this step.</p>
       </div>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-zinc-900">Create brand</h2>
-            <p className="text-sm text-zinc-600">Minimal setup—just a name for now.</p>
+            <h2 className="text-base font-semibold text-zinc-900">Create a Brand</h2>
+            <p className="text-sm text-zinc-600">A brand is your content workspace</p>
           </div>
         </div>
 
@@ -84,7 +85,7 @@ export function BrandsPage() {
           <label className="text-sm font-medium text-zinc-900">Brand Name</label>
           <input
             className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
-            placeholder="e.g. Acme"
+            placeholder="e.g. Acme Fitness"
             value={name}
             onChange={(e) => {
               setCreateError(null);
