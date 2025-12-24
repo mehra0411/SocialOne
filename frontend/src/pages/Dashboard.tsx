@@ -102,6 +102,8 @@ export function DashboardPage() {
     [brands, selectedBrandId],
   );
 
+  const hasBrands = brands.length > 0;
+
   useEffect(() => {
     if (!selectedBrandId) {
       setIgConnected(null);
@@ -162,8 +164,8 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold text-zinc-900">Dashboard</h1>
-        <p className="text-sm text-zinc-600">Feed draft generation and publishing (no admin required).</p>
+        <h1 className="text-xl font-semibold text-zinc-900">Welcome to SocialOne</h1>
+        <p className="text-sm text-zinc-600">Create on-brand content faster — with or without AI</p>
       </div>
 
       <section className="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -207,12 +209,13 @@ export function DashboardPage() {
               {!brandsLoading && brands.length === 0 ? (
                 <div className="mt-2 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
                   <div className="font-medium text-zinc-900">No brands yet</div>
-                  <div className="text-zinc-600">
-                    Create one on{' '}
-                    <Link to="/brands" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
-                      My Brands
-                    </Link>{' '}
-                    to start.
+                  <div className="mt-2 flex flex-col gap-2">
+                    <Link to="/brands" className={buttonClassName({ variant: 'primary' })}>
+                      Create Your First Brand
+                    </Link>
+                    <div className="text-xs text-zinc-600">
+                      Brands help us understand your voice and audience before creating content.
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -280,8 +283,26 @@ export function DashboardPage() {
                   }
                 }}
               >
-                {generating ? 'Generating…' : 'Generate caption (draft)'}
+                {generating ? 'Generating…' : 'Generate Content'}
               </button>
+
+              {hasBrands ? (
+                <Link to="/drafts" className={buttonClassName({ variant: 'secondary' })}>
+                  View Drafts
+                </Link>
+              ) : null}
+
+              {hasBrands ? (
+                <button
+                  type="button"
+                  className={buttonClassName({ variant: 'secondary' })}
+                  disabled
+                  aria-disabled="true"
+                  title="Coming soon"
+                >
+                  Insights (Coming Soon)
+                </button>
+              ) : null}
 
               <button
                 className={buttonClassName({ variant: 'secondary' })}
