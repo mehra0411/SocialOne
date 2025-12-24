@@ -556,9 +556,9 @@ export function DraftsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
             <div className="space-y-1">
-              <h3 className="text-base font-semibold text-zinc-900">Publish now (manual override)</h3>
+              <h3 className="text-base font-semibold text-zinc-900">Confirm Publish</h3>
               <p className="text-sm text-zinc-600">
-                This will publish immediately. Scheduled posts ignore the schedule; failed posts retry right away.
+                You’re about to publish this post to Instagram for Brand: {brandName || brandId}
               </p>
             </div>
 
@@ -603,7 +603,7 @@ export function DraftsPage() {
                   }
                 }}
               >
-                {publishNowSubmitting ? 'Publishing…' : 'Confirm publish now'}
+                {publishNowSubmitting ? 'Publishing…' : 'Confirm & Publish'}
               </button>
             </div>
           </div>
