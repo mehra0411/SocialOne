@@ -80,9 +80,7 @@ export function BrandProfilePage() {
     <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="text-xl font-semibold text-zinc-900">Brand Profile</h1>
-        <p className="text-sm text-zinc-600">
-          Optional settings to improve content generation quality. Editing is safe and non-blocking.
-        </p>
+        <p className="text-sm text-zinc-600">Define how your brand communicates</p>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -110,7 +108,7 @@ export function BrandProfilePage() {
           <h2 className="text-base font-semibold text-zinc-900">Brand Basics</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Category / Niche</label>
+              <label className="text-sm font-medium text-zinc-900">Industry / Category</label>
               <select
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
                 value={form.category}
@@ -124,6 +122,7 @@ export function BrandProfilePage() {
                 <option value="Agency">Agency</option>
                 <option value="Other">Other</option>
               </select>
+              <p className="text-xs text-zinc-500">Helps us tailor content ideas to your niche.</p>
             </div>
             <div className="grid gap-1">
               <label className="text-sm font-medium text-zinc-900">Target Audience</label>
@@ -137,6 +136,7 @@ export function BrandProfilePage() {
                 <option value="B2B">B2B</option>
                 <option value="Both">Both</option>
               </select>
+              <p className="text-xs text-zinc-500">Who are you primarily speaking to?</p>
             </div>
           </div>
         </section>
@@ -145,7 +145,7 @@ export function BrandProfilePage() {
           <h2 className="text-base font-semibold text-zinc-900">Brand Voice & Tone</h2>
           <div className="mt-4 grid gap-4">
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Brand Voice</label>
+              <label className="text-sm font-medium text-zinc-900">Brand Voice (Tone)</label>
               <select
                 className="w-full max-w-md rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
                 value={form.brandVoice}
@@ -160,28 +160,28 @@ export function BrandProfilePage() {
                 <option value="luxury">Luxury</option>
                 <option value="custom">Custom</option>
               </select>
-              {form.brandVoice === 'custom' ? (
-                <p className="text-xs text-zinc-500">Tip: use Tone Description to define your custom voice.</p>
-              ) : null}
+              <p className="text-xs text-zinc-500">This guides how captions and messaging are written.</p>
             </div>
 
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Tone Description</label>
+              <label className="text-sm font-medium text-zinc-900">Brand Voice (Tone)</label>
               <textarea
                 className="min-h-28 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
+                placeholder="Professional, Friendly, Educational"
                 value={form.toneDescription}
                 onChange={(e) => setForm((p) => ({ ...p, toneDescription: e.target.value }))}
               />
+              <p className="text-xs text-zinc-500">This guides how captions and messaging are written.</p>
             </div>
 
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Style Do / Don’t</label>
+              <label className="text-sm font-medium text-zinc-900">Brand Voice Style (Optional)</label>
               <textarea
                 className="min-h-28 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
                 value={form.styleDoDont}
                 onChange={(e) => setForm((p) => ({ ...p, styleDoDont: e.target.value }))}
               />
-              <p className="text-xs text-zinc-500">Example: “Do: short sentences. Don’t: slang.”</p>
+              <p className="text-xs text-zinc-500">Add any nuances or examples that describe how your brand sounds.</p>
             </div>
           </div>
         </section>
@@ -190,22 +190,26 @@ export function BrandProfilePage() {
           <h2 className="text-base font-semibold text-zinc-900">Language Rules</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Preferred Language</label>
+              <label className="text-sm font-medium text-zinc-900">Instagram Username (reference only)</label>
               <input
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
                 value={form.preferredLanguage}
                 onChange={(e) => setForm((p) => ({ ...p, preferredLanguage: e.target.value }))}
               />
+              <p className="text-xs text-zinc-500">
+                This does not connect your Instagram account. You’ll do that later.
+              </p>
             </div>
 
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Banned Words (comma-separated)</label>
+              <label className="text-sm font-medium text-zinc-900">Words or Phrases to Avoid (Optional)</label>
               <input
                 className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
                 placeholder="e.g. free, cheap, guaranteed"
                 value={form.bannedWords}
                 onChange={(e) => setForm((p) => ({ ...p, bannedWords: e.target.value }))}
               />
+              <p className="text-xs text-zinc-500">AI will avoid using these in generated content.</p>
             </div>
           </div>
 
@@ -234,7 +238,7 @@ export function BrandProfilePage() {
         </section>
 
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-900">Visual Identity (Light)</h2>
+          <h2 className="text-base font-semibold text-zinc-900">Brand Colors (Optional)</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1">
               <label className="text-sm font-medium text-zinc-900">Primary Color (hex)</label>
@@ -264,7 +268,7 @@ export function BrandProfilePage() {
               />
             </div>
           </div>
-          <p className="mt-3 text-xs text-zinc-500">No logo upload, no files—just lightweight config.</p>
+          <p className="mt-3 text-xs text-zinc-500">Used for visual consistency in generated creatives.</p>
         </section>
 
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
