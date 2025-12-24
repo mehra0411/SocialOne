@@ -357,6 +357,7 @@ export function DraftsPage() {
                 const canSchedule = !isPublishingOrPublished;
                 const canPublishNow = status === 'scheduled' || status === 'failed';
                 const platform = r.platform ?? 'instagram';
+                const platformLabel = platform === 'instagram' ? 'Instagram' : platform;
                 const actionsBusy = scheduleSubmitting || publishNowSubmitting || igLoading;
                 const publishBlocked = igConnected !== true;
 
@@ -388,6 +389,18 @@ export function DraftsPage() {
                     <td className="py-3 pr-4 text-xs text-zinc-600">{formatDate(r.created_at ?? null)}</td>
                     <td className="py-3 pr-4">
                       <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
+                          <span className="truncate">
+                            <span className="font-medium text-zinc-700">Brand:</span> {brandName || brandId}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+                            <span
+                              aria-hidden="true"
+                              className="h-2.5 w-2.5 rounded-[3px] bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#515BD4]"
+                            />
+                            {platformLabel}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2">
                         <button
                           className={buttonClassName({ variant: 'secondary', size: 'sm' })}
