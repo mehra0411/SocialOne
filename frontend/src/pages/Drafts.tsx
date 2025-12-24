@@ -13,6 +13,8 @@ type FeedPost = {
   brand_id: string;
   platform: string;
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
+  caption?: string | null;
+  image_url?: string | null;
   scheduled_at: string | null;
   published_at: string | null;
   failed_at: string | null;
@@ -25,6 +27,9 @@ type Reel = {
   brand_id: string;
   platform: string;
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed' | 'generating' | 'ready';
+  caption?: string | null;
+  input_image_url?: string | null;
+  video_url?: string | null;
   scheduled_at: string | null;
   published_at: string | null;
   failed_at: string | null;
@@ -355,6 +360,19 @@ export function DraftsPage() {
                 const actionsBusy = scheduleSubmitting || publishNowSubmitting || igLoading;
                 const publishBlocked = igConnected !== true;
 
+                const caption = typeof r.caption === 'string' ? r.caption.trim() : '';
+                const hasCaption = caption.length > 0;
+                const hasRequiredMedia =
+                  tab === 'feed'
+                    ? typeof r.image_url === 'string' && r.image_url.trim().length > 0
+                    : typeof r.video_url === 'string' && r.video_url.trim().length > 0;
+                const contentIncomplete = !hasCaption || !hasRequiredMedia;
+                const publishDisabledReason: 'ig' | 'incomplete' | null = publishBlocked
+                  ? 'ig'
+                  : contentIncomplete
+                    ? 'incomplete'
+                    : null;
+
                 return (
                   <tr key={r.id} className="border-b border-zinc-100">
                     <td className="py-3 pr-4 font-mono text-xs text-zinc-700">{r.id}</td>
@@ -369,7 +387,8 @@ export function DraftsPage() {
                     <td className="py-3 pr-4 text-xs text-zinc-600">{r.retry_count ?? 0}</td>
                     <td className="py-3 pr-4 text-xs text-zinc-600">{formatDate(r.created_at ?? null)}</td>
                     <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
                         <button
                           className={buttonClassName({ variant: 'secondary', size: 'sm' })}
                           disabled={!canSchedule || actionsBusy}
@@ -388,7 +407,7 @@ export function DraftsPage() {
                         </button>
                         <button
                           className={buttonClassName({ variant: 'primary', size: 'sm', className: 'rounded-lg' })}
-                          disabled={!canPublishNow || isPublishingOrPublished || actionsBusy || publishBlocked}
+                          disabled={!canPublishNow || isPublishingOrPublished || actionsBusy || publishDisabledReason !== null}
                           onClick={() => {
                             setPublishNowError(null);
                             setPublishNowModal({ open: true, postType: tab, postId: r.id });
@@ -396,6 +415,14 @@ export function DraftsPage() {
                         >
                           Publish now
                         </button>
+                        </div>
+
+                        {publishDisabledReason === 'ig' ? (
+                          <div className="text-xs text-zinc-500">Connect Instagram to publish this post.</div>
+                        ) : null}
+                        {publishDisabledReason === 'incomplete' ? (
+                          <div className="text-xs text-zinc-500">Add caption and media before publishing.</div>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
