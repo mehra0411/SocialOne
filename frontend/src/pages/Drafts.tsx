@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { supabase } from '../lib/supabaseClient';
+import { uploadImageAndGetPublicUrl } from '../lib/storage';
 import { buttonClassName } from '../ui/button';
 import { Skeleton } from '../ui/Skeleton';
 import { useActiveBrand } from '../brands/activeBrand';
@@ -15,6 +17,9 @@ type FeedPost = {
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
   caption?: string | null;
   image_url?: string | null;
+  image_prompt?: string | null;
+  image_mode?: string | null;
+  image_status?: string | null;
   scheduled_at: string | null;
   published_at: string | null;
   failed_at: string | null;
@@ -139,6 +144,37 @@ function extractSpecificReason(err: unknown): string | null {
 
 type PostType = 'feed' | 'reel';
 
+async function apiJsonWithStatus<T>(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; json: T | null }> {
+  const rawBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!rawBase) throw new Error('VITE_API_BASE_URL is not set');
+  const base = rawBase.replace(/\/+$/, '');
+  const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
+
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  const accessToken = session?.access_token;
+  if (!accessToken) throw new Error('You are not authenticated. Please sign in again and retry.');
+
+  const resp = await fetch(url, {
+    ...init,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      ...((init?.headers as Record<string, string> | undefined) ?? {}),
+    },
+  });
+
+  let json: T | null = null;
+  try {
+    json = (await resp.json()) as T;
+  } catch {
+    json = null;
+  }
+
+  return { ok: resp.ok, status: resp.status, json };
+}
+
 export function DraftsPage() {
   const { activeBrandId, setActiveBrand } = useActiveBrand();
 
@@ -187,6 +223,15 @@ export function DraftsPage() {
     record: FeedPost | Reel | null;
   }>({ open: false, postType: 'feed', record: null });
 
+  // AI Image (Feed only) state (scoped to the currently viewed draft)
+  const [aiImagePrompt, setAiImagePrompt] = useState('');
+  const [aiReferenceImageUrl, setAiReferenceImageUrl] = useState<string>('');
+  const [aiUploadingReference, setAiUploadingReference] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiRemoving, setAiRemoving] = useState(false);
+  const [aiImageError, setAiImageError] = useState<string | null>(null);
+  const [aiGeneratedImageUrl, setAiGeneratedImageUrl] = useState<string>('');
+
   // Row-scoped UI lock for in-progress publish actions (prevents duplicate submissions & disables only that row).
   const [rowPublishBusy, setRowPublishBusy] = useState<Record<string, boolean>>({});
 
@@ -208,6 +253,19 @@ export function DraftsPage() {
     // Clear the explicit "not connected" publish attempt banner when brand/connection changes.
     setPublishBlockedAttempt(false);
   }, [brandId, igConnected]);
+
+  useEffect(() => {
+    // Initialize AI Image state when the view modal opens or switches records.
+    if (!viewModal.open || viewModal.postType !== 'feed' || !viewModal.record) return;
+    const r = viewModal.record as FeedPost;
+    setAiImageError(null);
+    setAiGenerating(false);
+    setAiRemoving(false);
+    setAiUploadingReference(false);
+    setAiReferenceImageUrl('');
+    setAiImagePrompt((r.image_prompt ?? '').trim());
+    setAiGeneratedImageUrl((r.image_url ?? '').trim());
+  }, [viewModal.open, viewModal.postType, viewModal.record]);
 
   useEffect(() => {
     let mounted = true;
@@ -718,10 +776,10 @@ export function DraftsPage() {
                 </div>
               </div>
 
-              {viewModal.postType === 'feed' && (viewModal.record as FeedPost).image_url ? (
+              {viewModal.postType === 'feed' && (aiGeneratedImageUrl || (viewModal.record as FeedPost).image_url) ? (
                 <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
                   <img
-                    src={(viewModal.record as FeedPost).image_url ?? ''}
+                    src={aiGeneratedImageUrl || ((viewModal.record as FeedPost).image_url ?? '')}
                     alt="Draft image"
                     className="max-h-[420px] w-full object-cover"
                     onError={(e) => {
@@ -729,6 +787,263 @@ export function DraftsPage() {
                     }}
                   />
                   <div className="px-3 py-2 text-xs text-zinc-600">Image preview</div>
+                </div>
+              ) : null}
+
+              {viewModal.postType === 'feed' ? (
+                <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-zinc-900">AI Image</div>
+                      <div className="mt-1 text-xs text-zinc-600">
+                        Generate an AI image for this feed draft. This is an explicit action (no auto-generate).
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-3">
+                    <div className="grid gap-1">
+                      <label className="text-sm font-medium text-zinc-900">Image prompt</label>
+                      <textarea
+                        className="min-h-24 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
+                        value={aiImagePrompt}
+                        onChange={(e) => {
+                          setAiImageError(null);
+                          setAiImagePrompt(e.target.value);
+                        }}
+                        placeholder="Describe the image you want…"
+                      />
+                      <div className="text-xs text-zinc-500">Required. Used for generation and regeneration.</div>
+                    </div>
+
+                    <div className="grid gap-1">
+                      <label className="text-sm font-medium text-zinc-900">Reference image (optional)</label>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full text-sm"
+                        disabled={aiUploadingReference || aiGenerating || aiRemoving}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setAiImageError(null);
+                          if (!file) {
+                            setAiReferenceImageUrl('');
+                            return;
+                          }
+
+                          const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+                          if (!allowed.has(file.type)) {
+                            setAiImageError('Reference image must be a JPG, PNG, or WEBP file.');
+                            e.currentTarget.value = '';
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            setAiImageError('Reference image must be 5MB or smaller.');
+                            e.currentTarget.value = '';
+                            return;
+                          }
+
+                          setAiUploadingReference(true);
+                          try {
+                            const url = await uploadImageAndGetPublicUrl(file);
+                            setAiReferenceImageUrl(url);
+                          } catch {
+                            setAiImageError('Failed to upload reference image.');
+                            e.currentTarget.value = '';
+                          } finally {
+                            setAiUploadingReference(false);
+                          }
+                        }}
+                      />
+                      {aiUploadingReference ? <div className="text-xs text-zinc-500">Uploading reference…</div> : null}
+                      {aiReferenceImageUrl ? (
+                        <div className="flex items-center justify-between gap-2 text-xs text-zinc-600">
+                          <span className="truncate">Uploaded reference image</span>
+                          <button
+                            type="button"
+                            className="font-medium text-[#4F46E5] hover:text-[#4338CA]"
+                            onClick={() => setAiReferenceImageUrl('')}
+                            disabled={aiUploadingReference || aiGenerating || aiRemoving}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-zinc-500">Optional. If provided, we’ll use image-edit mode.</div>
+                      )}
+                    </div>
+
+                    {aiImageError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{aiImageError}</div> : null}
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!aiGeneratedImageUrl ? (
+                        <button
+                          type="button"
+                          className={buttonClassName({ variant: 'primary' })}
+                          disabled={!aiImagePrompt.trim() || aiGenerating || aiUploadingReference || aiRemoving}
+                          onClick={async () => {
+                            const record = viewModal.record as FeedPost;
+                            setAiImageError(null);
+                            setAiGenerating(true);
+                            try {
+                              const resp = await apiJsonWithStatus<{ imageUrl: string; revisedPrompt: string | null; imageMode: string }>(
+                                '/api/feed/image/generate',
+                                {
+                                  method: 'POST',
+                                  body: JSON.stringify({
+                                    brandId,
+                                    feedDraftId: record.id,
+                                    prompt: aiImagePrompt.trim(),
+                                    referenceImageUrl: aiReferenceImageUrl || undefined,
+                                  }),
+                                }
+                              );
+
+                              if (!resp.ok) {
+                                const msg =
+                                  (resp.json as any)?.message ||
+                                  (resp.json as any)?.error ||
+                                  (resp.status === 429 ? 'Limit reached.' : null) ||
+                                  `Request failed: ${resp.status}`;
+                                if (resp.status === 429) {
+                                  setAiImageError(msg);
+                                } else {
+                                  setAiImageError('Failed to generate image');
+                                }
+                                return;
+                              }
+
+                              const imageUrl = (resp.json as any)?.imageUrl as string | undefined;
+                              const revised = (resp.json as any)?.revisedPrompt as string | null | undefined;
+                              if (!imageUrl) {
+                                setAiImageError('Failed to generate image');
+                                return;
+                              }
+
+                              setAiGeneratedImageUrl(imageUrl);
+                              if (revised && revised.trim()) setAiImagePrompt(revised.trim());
+
+                              // Update local draft state so list/preview stay in sync without refetching.
+                              setFeedPosts((prev) => prev.map((p) => (p.id === record.id ? { ...p, image_url: imageUrl } : p)));
+                              setViewModal((prev) =>
+                                prev.open && prev.postType === 'feed' && prev.record && (prev.record as FeedPost).id === record.id
+                                  ? { ...prev, record: { ...(prev.record as FeedPost), image_url: imageUrl, image_prompt: revised ?? (prev.record as FeedPost).image_prompt ?? null } }
+                                  : prev
+                              );
+                            } catch {
+                              setAiImageError('Failed to generate image');
+                            } finally {
+                              setAiGenerating(false);
+                            }
+                          }}
+                        >
+                          {aiGenerating ? 'Generating…' : 'Generate Image'}
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className={buttonClassName({ variant: 'primary' })}
+                            disabled={!aiImagePrompt.trim() || aiGenerating || aiUploadingReference || aiRemoving}
+                            onClick={async () => {
+                              const record = viewModal.record as FeedPost;
+                              setAiImageError(null);
+                              setAiGenerating(true);
+                              try {
+                                const resp = await apiJsonWithStatus<{ imageUrl: string; revisedPrompt: string | null; imageMode: string }>(
+                                  '/api/feed/image/generate',
+                                  {
+                                    method: 'POST',
+                                    body: JSON.stringify({
+                                      brandId,
+                                      feedDraftId: record.id,
+                                      prompt: aiImagePrompt.trim(),
+                                      referenceImageUrl: aiReferenceImageUrl || undefined,
+                                    }),
+                                  }
+                                );
+
+                                if (!resp.ok) {
+                                  const msg =
+                                    (resp.json as any)?.message ||
+                                    (resp.json as any)?.error ||
+                                    (resp.status === 429 ? 'Limit reached.' : null) ||
+                                    `Request failed: ${resp.status}`;
+                                  if (resp.status === 429) {
+                                    setAiImageError(msg);
+                                  } else {
+                                    setAiImageError('Failed to generate image');
+                                  }
+                                  return;
+                                }
+
+                                const imageUrl = (resp.json as any)?.imageUrl as string | undefined;
+                                const revised = (resp.json as any)?.revisedPrompt as string | null | undefined;
+                                if (!imageUrl) {
+                                  setAiImageError('Failed to generate image');
+                                  return;
+                                }
+
+                                setAiGeneratedImageUrl(imageUrl);
+                                if (revised && revised.trim()) setAiImagePrompt(revised.trim());
+
+                                setFeedPosts((prev) => prev.map((p) => (p.id === record.id ? { ...p, image_url: imageUrl } : p)));
+                                setViewModal((prev) =>
+                                  prev.open && prev.postType === 'feed' && prev.record && (prev.record as FeedPost).id === record.id
+                                    ? { ...prev, record: { ...(prev.record as FeedPost), image_url: imageUrl, image_prompt: revised ?? (prev.record as FeedPost).image_prompt ?? null } }
+                                    : prev
+                                );
+                              } catch {
+                                setAiImageError('Failed to generate image');
+                              } finally {
+                                setAiGenerating(false);
+                              }
+                            }}
+                          >
+                            {aiGenerating ? 'Generating…' : 'Regenerate'}
+                          </button>
+                          <button
+                            type="button"
+                            className={buttonClassName({ variant: 'secondary' })}
+                            disabled={aiRemoving || aiGenerating || aiUploadingReference}
+                            onClick={async () => {
+                              const record = viewModal.record as FeedPost;
+                              setAiImageError(null);
+                              setAiRemoving(true);
+                              try {
+                                const resp = await apiJsonWithStatus<{ success: true }>(
+                                  '/api/feed/image/remove',
+                                  {
+                                    method: 'POST',
+                                    body: JSON.stringify({ brandId, feedDraftId: record.id }),
+                                  }
+                                );
+
+                                if (!resp.ok) {
+                                  setAiImageError('Failed to remove image');
+                                  return;
+                                }
+
+                                setAiGeneratedImageUrl('');
+                                setFeedPosts((prev) => prev.map((p) => (p.id === record.id ? { ...p, image_url: null } : p)));
+                                setViewModal((prev) =>
+                                  prev.open && prev.postType === 'feed' && prev.record && (prev.record as FeedPost).id === record.id
+                                    ? { ...prev, record: { ...(prev.record as FeedPost), image_url: null } }
+                                    : prev
+                                );
+                              } catch {
+                                setAiImageError('Failed to remove image');
+                              } finally {
+                                setAiRemoving(false);
+                              }
+                            }}
+                          >
+                            {aiRemoving ? 'Removing…' : 'Remove'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : null}
 
