@@ -266,7 +266,7 @@ export function DashboardPage() {
                   setDraft(null);
                   setGenerating(true);
                   try {
-                    const resp = await apiFetch<{ feedPost: FeedPost }>('/api/feed/generate', {
+                    const resp = await apiFetch<FeedPost>('/api/feed/generate', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -275,7 +275,7 @@ export function DashboardPage() {
                         prompt: prompt.trim() || undefined,
                       }),
                     });
-                    setDraft(resp.feedPost);
+                    setDraft(resp);
                   } catch (e) {
                     setError(e instanceof Error ? e.message : 'Failed to generate');
                   } finally {
