@@ -1,5 +1,5 @@
 import { getBrandById } from '../brands/brand.repository';
-import { createDraftFeedPost, type FeedPost } from './feed.repository';
+import { createDraftFeedPost, getFeedPostById, type FeedPost } from './feed.repository';
 
 export type GenerateFeedDraftPayload = {
   brandId: string;
@@ -15,6 +15,48 @@ function requiredEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env: ${name}`);
   return v;
+}
+
+export class FeedDraftNotFoundError extends Error {
+  constructor() {
+    super('Feed draft not found');
+  }
+}
+
+function getSupabaseConfig() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing Supabase env (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)');
+  }
+
+  return {
+    supabaseUrl: supabaseUrl.replace(/\/+$/, ''),
+    serviceRoleKey,
+  };
+}
+
+async function supabaseRest<T>(pathWithQuery: string, init?: RequestInit): Promise<T> {
+  const { supabaseUrl, serviceRoleKey } = getSupabaseConfig();
+
+  const resp = await fetch(`${supabaseUrl}${pathWithQuery}`, {
+    ...init,
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Accept: 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Supabase REST error: ${resp.status}`);
+  }
+
+  // Supabase returns JSON for delete when using return=representation; otherwise may be empty.
+  const text = await resp.text();
+  return (text ? (JSON.parse(text) as T) : (undefined as unknown as T));
 }
 
 async function generateCaptionWithOpenAI(input: {
@@ -89,6 +131,40 @@ export async function generateFeedDraft(userId: string, payload: GenerateFeedDra
     caption,
     imageUrl: payload.imageUrl ?? null,
   });
+}
+
+export async function deleteFeedDraft(userId: string, feedPostId: string): Promise<void> {
+  if (!userId) throw new Error('Missing userId');
+  if (!feedPostId) throw new Error('Missing feedPostId');
+
+  const post = await getFeedPostById(feedPostId);
+  if (!post) throw new FeedDraftNotFoundError();
+
+  // Enforce brand ownership (service-level; middleware currently only checks brandId presence).
+  const brand = await getBrandById(post.brand_id, userId);
+  if (!brand) throw new Error('Forbidden');
+
+  if (post.status !== 'draft') {
+    throw new Error('Only drafts can be deleted');
+  }
+
+  // Safety: only delete if still draft at time of delete.
+  const qs = new URLSearchParams();
+  qs.set('id', `eq.${feedPostId}`);
+  qs.set('status', 'eq.draft');
+  qs.set('select', '*');
+
+  const deleted = await supabaseRest<FeedPost[]>(`/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'DELETE',
+    headers: {
+      Prefer: 'return=representation',
+    },
+  });
+
+  if (!deleted?.length) {
+    // If the row existed but was not deleted, treat it as no longer a draft (race safety).
+    throw new Error('Only drafts can be deleted');
+  }
 }
 export async function publishFeedPost(
   userId: string,
