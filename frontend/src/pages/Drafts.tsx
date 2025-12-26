@@ -120,6 +120,7 @@ export function DraftsPage() {
   const [publishNowSubmitting, setPublishNowSubmitting] = useState(false);
   const [publishNowError, setPublishNowError] = useState<string | null>(null);
   const [publishNowSuccess, setPublishNowSuccess] = useState<string | null>(null);
+  const [publishBlockedAttempt, setPublishBlockedAttempt] = useState(false);
 
   // Row-scoped UI lock for in-progress publish actions (prevents duplicate submissions & disables only that row).
   const [rowPublishBusy, setRowPublishBusy] = useState<Record<string, boolean>>({});
@@ -133,6 +134,11 @@ export function DraftsPage() {
     const t = window.setTimeout(() => setPublishNowSuccess(null), 4000);
     return () => window.clearTimeout(t);
   }, [publishNowSuccess]);
+
+  useEffect(() => {
+    // Clear the explicit "not connected" publish attempt banner when brand/connection changes.
+    setPublishBlockedAttempt(false);
+  }, [brandId, igConnected]);
 
   useEffect(() => {
     let mounted = true;
@@ -293,6 +299,24 @@ export function DraftsPage() {
         </div>
       ) : null}
 
+      {publishBlockedAttempt ? (
+        <div className="flex items-start justify-between gap-3 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
+          <div>
+            Instagram is not connected for this brand.{' '}
+            <Link to="/brand/platforms" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+              Connect Instagram
+            </Link>
+          </div>
+          <button
+            type="button"
+            className="text-zinc-600 hover:text-zinc-900"
+            onClick={() => setPublishBlockedAttempt(false)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
       {publishNowSuccess ? (
         <div className="flex items-start justify-between gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
           <div>{publishNowSuccess}</div>
@@ -448,9 +472,13 @@ export function DraftsPage() {
                         </button>
                         <button
                           className={buttonClassName({ variant: 'primary', size: 'sm', className: 'rounded-lg' })}
-                          disabled={!canPublishNow || isPublishingOrPublished || actionsBusy || publishDisabledReason !== null}
+                          disabled={!canPublishNow || isPublishingOrPublished || actionsBusy || publishDisabledReason === 'incomplete'}
                           onClick={() => {
                             setPublishNowError(null);
+                            if (publishBlocked) {
+                              setPublishBlockedAttempt(true);
+                              return;
+                            }
                             setPublishNowModal({ open: true, postType: tab, postId: r.id });
                           }}
                         >
