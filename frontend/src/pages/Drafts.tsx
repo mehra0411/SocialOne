@@ -81,6 +81,12 @@ function friendlyErrorMessage(err: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
+function isAppAuthError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  return lower.includes('unauthorized') || lower.includes('forbidden');
+}
+
 function isInstagramAuthExpiredError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   const lower = msg.toLowerCase();
@@ -91,6 +97,44 @@ function isInstagramAuthExpiredError(err: unknown): boolean {
   if (lower.includes('token') && lower.includes('expired')) return true;
   if (lower.includes('reconnect') && lower.includes('instagram')) return true;
   return false;
+}
+
+function isInstagramMediaValidationError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  // Heuristics for common Meta validation failures (format/size/duration/aspect/etc).
+  return (
+    lower.includes('meta create') ||
+    lower.includes('meta publish')
+  )
+    ? lower.includes('format') ||
+        lower.includes('duration') ||
+        lower.includes('too long') ||
+        lower.includes('too large') ||
+        lower.includes('file size') ||
+        lower.includes('resolution') ||
+        lower.includes('aspect') ||
+        lower.includes('ratio') ||
+        lower.includes('bitrate') ||
+        lower.includes('unsupported') ||
+        lower.includes('invalid') ||
+        lower.includes('requirements')
+    : lower.includes('instagram requirements') ||
+        lower.includes('media doesn’t meet') ||
+        lower.includes('media does not meet') ||
+        false;
+}
+
+function extractSpecificReason(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  // Try to strip our adapter prefixes and remove Meta codes/subcodes for a cleaner, user-facing reason.
+  let s = msg;
+  s = s.replace(/^Meta (create (reels )?container failed|publish failed):\s*/i, '');
+  s = s.replace(/\s+code=\d+/gi, '');
+  s = s.replace(/\s+subcode=\d+/gi, '');
+  s = s.trim();
+  if (!s || s === msg) return s || null;
+  return s;
 }
 
 type PostType = 'feed' | 'reel';
@@ -133,6 +177,8 @@ export function DraftsPage() {
   const [publishNowError, setPublishNowError] = useState<string | null>(null);
   const [publishNowSuccess, setPublishNowSuccess] = useState<string | null>(null);
   const [publishNowIgAuthExpired, setPublishNowIgAuthExpired] = useState(false);
+  const [publishNowMediaErrorDetail, setPublishNowMediaErrorDetail] = useState<string | null>(null);
+  const [publishNowTemporaryFailure, setPublishNowTemporaryFailure] = useState(false);
   const [publishBlockedAttempt, setPublishBlockedAttempt] = useState(false);
 
   // Row-scoped UI lock for in-progress publish actions (prevents duplicate submissions & disables only that row).
@@ -632,7 +678,13 @@ export function DraftsPage() {
             </div>
 
             {publishNowError ? (
-              <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{publishNowError}</div>
+              <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                <div>{publishNowError}</div>
+                {publishNowMediaErrorDetail ? <div className="mt-1 text-xs text-red-700/90">{publishNowMediaErrorDetail}</div> : null}
+                {publishNowTemporaryFailure ? (
+                  <div className="mt-2 text-xs text-red-700/90">Your draft is safe. Please try again.</div>
+                ) : null}
+              </div>
             ) : null}
             {publishNowIgAuthExpired ? (
               <div className="mt-2 text-sm text-zinc-700">
@@ -658,6 +710,8 @@ export function DraftsPage() {
                   setPublishNowError(null);
                   setPublishNowSuccess(null);
                   setPublishNowIgAuthExpired(false);
+                  setPublishNowMediaErrorDetail(null);
+                  setPublishNowTemporaryFailure(false);
                   setPublishNowSubmitting(true);
                   setRowPublishBusy((prev) => ({ ...prev, [k]: true }));
                   try {
@@ -681,8 +735,18 @@ export function DraftsPage() {
                     if (isInstagramAuthExpiredError(e)) {
                       setPublishNowIgAuthExpired(true);
                       setPublishNowError('Instagram connection expired. Please reconnect to continue.');
+                    } else if (isInstagramMediaValidationError(e)) {
+                      setPublishNowError('This media doesn’t meet Instagram requirements.');
+                      const reason = extractSpecificReason(e);
+                      setPublishNowMediaErrorDetail(reason ? `Reason: ${reason}` : null);
                     } else {
-                      setPublishNowError(friendlyErrorMessage(e));
+                      // For generic/network/5xx failures, show a calm, reassuring message.
+                      if (isAppAuthError(e)) {
+                        setPublishNowError(friendlyErrorMessage(e));
+                      } else {
+                        setPublishNowError('We couldn’t publish this post due to a temporary issue.');
+                        setPublishNowTemporaryFailure(true);
+                      }
                     }
                   } finally {
                     setPublishNowSubmitting(false);
