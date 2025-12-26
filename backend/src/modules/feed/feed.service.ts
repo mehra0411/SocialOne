@@ -23,7 +23,10 @@ async function generateCaptionWithOpenAI(input: {
   voiceGuidelines?: string | null;
   prompt?: string;
 }): Promise<string> {
-  const apiKey = requiredEnv('OPENAI_API_KEY');
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set in environment variables');
+  }
   const model = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
 
   const system = `You write short, high-quality Instagram captions. Keep it concise, natural, and on-brand. Return ONLY the caption text.`;
