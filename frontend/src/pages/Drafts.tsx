@@ -81,6 +81,18 @@ function friendlyErrorMessage(err: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
+function isInstagramAuthExpiredError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  // We don't get a structured status code from apiFetch, so we classify based on the backend error message.
+  if (lower.includes('instagram') && (lower.includes('expired') || lower.includes('token') || lower.includes('oauth'))) {
+    return true;
+  }
+  if (lower.includes('token') && lower.includes('expired')) return true;
+  if (lower.includes('reconnect') && lower.includes('instagram')) return true;
+  return false;
+}
+
 type PostType = 'feed' | 'reel';
 
 export function DraftsPage() {
@@ -120,6 +132,7 @@ export function DraftsPage() {
   const [publishNowSubmitting, setPublishNowSubmitting] = useState(false);
   const [publishNowError, setPublishNowError] = useState<string | null>(null);
   const [publishNowSuccess, setPublishNowSuccess] = useState<string | null>(null);
+  const [publishNowIgAuthExpired, setPublishNowIgAuthExpired] = useState(false);
   const [publishBlockedAttempt, setPublishBlockedAttempt] = useState(false);
 
   // Row-scoped UI lock for in-progress publish actions (prevents duplicate submissions & disables only that row).
@@ -621,6 +634,13 @@ export function DraftsPage() {
             {publishNowError ? (
               <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{publishNowError}</div>
             ) : null}
+            {publishNowIgAuthExpired ? (
+              <div className="mt-2 text-sm text-zinc-700">
+                <Link to="/brand/platforms" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+                  Reconnect Instagram
+                </Link>
+              </div>
+            ) : null}
 
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -637,6 +657,7 @@ export function DraftsPage() {
                   const k = rowKey(publishNowModal.postType, publishNowModal.postId);
                   setPublishNowError(null);
                   setPublishNowSuccess(null);
+                  setPublishNowIgAuthExpired(false);
                   setPublishNowSubmitting(true);
                   setRowPublishBusy((prev) => ({ ...prev, [k]: true }));
                   try {
@@ -657,7 +678,12 @@ export function DraftsPage() {
                     setPublishNowSuccess('Published successfully to Instagram');
                     setPublishNowModal({ open: false, postType: 'feed', postId: '' });
                   } catch (e) {
-                    setPublishNowError(friendlyErrorMessage(e));
+                    if (isInstagramAuthExpiredError(e)) {
+                      setPublishNowIgAuthExpired(true);
+                      setPublishNowError('Instagram connection expired. Please reconnect to continue.');
+                    } else {
+                      setPublishNowError(friendlyErrorMessage(e));
+                    }
                   } finally {
                     setPublishNowSubmitting(false);
                     setRowPublishBusy((prev) => {
