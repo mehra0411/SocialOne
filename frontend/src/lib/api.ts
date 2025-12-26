@@ -12,13 +12,20 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const base = rawBase.replace(/\/+$/, '');
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
 
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-  };
-
   const { data } = await supabase.auth.getSession();
   const session = data.session;
-  if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    // Minimal client-side logging for debugging auth-related API failures.
+    console.error('apiFetch: missing Supabase session/access_token; cannot call API', { path });
+    throw new Error('You are not authenticated. Please sign in again and retry.');
+  }
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${accessToken}`,
+  };
 
   // Merge headers (init wins)
   const mergedHeaders = {
