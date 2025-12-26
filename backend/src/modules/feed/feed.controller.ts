@@ -236,3 +236,33 @@ export async function feedImageGenerate(req: AuthenticatedRequest, res: Response
     return res.status(500).json({ message: msg || 'Internal server error' });
   }
 }
+
+export async function feedImageRemove(req: AuthenticatedRequest, res: Response) {
+  const { brandId, feedDraftId } = req.body as { brandId?: string; feedDraftId?: string };
+
+  if (!brandId) return res.status(400).json({ message: 'brandId is required' });
+  if (!feedDraftId) return res.status(400).json({ message: 'feedDraftId is required' });
+
+  try {
+    const usage = await supabaseGetFeedImageUsage(feedDraftId);
+    if (!usage) return res.status(404).json({ message: 'Not found' });
+    if (usage.brand_id !== brandId) {
+      return res.status(400).json({ message: 'Feed draft does not belong to the provided brandId' });
+    }
+
+    // Clear AI image-related fields only. Do NOT touch generation counters.
+    await supabasePatchFeedPostById(feedDraftId, {
+      image_url: null,
+      image_prompt: null,
+      image_mode: null,
+      image_status: null,
+      image_cost_cents: null,
+      image_generated_at: null,
+    });
+
+    return res.json({ success: true });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ message: msg || 'Internal server error' });
+  }
+}
