@@ -35,6 +35,61 @@ async function supabasePatchFeedPostById(feedPostId: string, patch: Record<strin
   }
 }
 
+async function supabaseGetFeedImageUsage(feedDraftId: string): Promise<{
+  id: string;
+  brand_id: string;
+  image_generation_count_total: number | null;
+  image_generation_day: string | null;
+  image_generation_count_day: number | null;
+} | null> {
+  const { supabaseUrl, serviceRoleKey } = getSupabaseConfig();
+  const qs = new URLSearchParams();
+  qs.set('select', 'id,brand_id,image_generation_count_total,image_generation_day,image_generation_count_day');
+  qs.set('id', `eq.${feedDraftId}`);
+  qs.set('limit', '1');
+
+  const resp = await fetch(`${supabaseUrl}/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'GET',
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!resp.ok) throw new Error(`Supabase REST error: ${resp.status}`);
+  const rows = (await resp.json()) as any[];
+  return (rows?.[0] as any) ?? null;
+}
+
+async function supabaseGetBrandDailyImageCountCapped(brandId: string, dayIso: string, cap: number): Promise<number> {
+  const { supabaseUrl, serviceRoleKey } = getSupabaseConfig();
+  const qs = new URLSearchParams();
+  qs.set('select', 'image_generation_count_day');
+  qs.set('brand_id', `eq.${brandId}`);
+  qs.set('image_generation_day', `eq.${dayIso}`);
+  // Keep bounded; we only need to know if we're at/over cap.
+  qs.set('limit', '2000');
+
+  const resp = await fetch(`${supabaseUrl}/rest/v1/feed_posts?${qs.toString()}`, {
+    method: 'GET',
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!resp.ok) throw new Error(`Supabase REST error: ${resp.status}`);
+  const rows = (await resp.json()) as Array<{ image_generation_count_day?: number | null }>;
+  let sum = 0;
+  for (const r of rows) {
+    sum += typeof r.image_generation_count_day === 'number' ? r.image_generation_count_day : 0;
+    if (sum >= cap) return sum;
+  }
+  return sum;
+}
+
 export async function feedGenerate(
   req: AuthenticatedRequest,
   res: Response
@@ -129,20 +184,55 @@ export async function feedImageGenerate(req: AuthenticatedRequest, res: Response
   if (!feedDraftId) return res.status(400).json({ message: 'feedDraftId is required' });
   if (!prompt || !prompt.trim()) return res.status(400).json({ message: 'prompt is required' });
 
-  const result = await generateFeedImage(userId, brandId, feedDraftId, prompt, referenceImageUrl);
+  try {
+    // Abuse/cost guards (best-effort; deterministic, no background jobs).
+    const usage = await supabaseGetFeedImageUsage(feedDraftId);
+    if (!usage) return res.status(404).json({ message: 'Not found' });
+    if (usage.brand_id !== brandId) return res.status(400).json({ message: 'Feed draft does not belong to the provided brandId' });
 
-  // Persist to the existing draft row. Column naming is expected to be snake_case in Postgres.
-  await supabasePatchFeedPostById(feedDraftId, {
-    image_url: result.imageUrl,
-    image_prompt: result.revisedPrompt ?? prompt,
-    image_mode: result.imageMode,
-    image_status: 'generated',
-    image_cost_cents: result.costCents,
-  });
+    const maxPerDraft = 5;
+    const maxPerBrandPerDay = 20;
 
-  return res.json({
-    imageUrl: result.imageUrl,
-    revisedPrompt: result.revisedPrompt,
-    imageMode: result.imageMode,
-  });
+    const totalSoFar = typeof usage.image_generation_count_total === 'number' ? usage.image_generation_count_total : 0;
+    if (totalSoFar >= maxPerDraft) {
+      return res.status(429).json({ message: 'Image generation limit reached for this draft (max 5).' });
+    }
+
+    const today = new Date();
+    const dayIso = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    const brandDaily = await supabaseGetBrandDailyImageCountCapped(brandId, dayIso, maxPerBrandPerDay);
+    if (brandDaily >= maxPerBrandPerDay) {
+      return res.status(429).json({ message: 'Daily image generation limit reached for this brand (max 20 per day).' });
+    }
+
+    const result = await generateFeedImage(userId, brandId, feedDraftId, prompt, referenceImageUrl);
+
+    // Update counters for this draft (total + per-day) and persist output fields.
+    const nextTotal = totalSoFar + 1;
+    const sameDay = usage.image_generation_day === dayIso;
+    const dayCountSoFar = typeof usage.image_generation_count_day === 'number' ? usage.image_generation_count_day : 0;
+    const nextDayCount = sameDay ? dayCountSoFar + 1 : 1;
+
+    // Persist to the existing draft row. Column naming is expected to be snake_case in Postgres.
+    await supabasePatchFeedPostById(feedDraftId, {
+      image_url: result.imageUrl,
+      image_prompt: result.revisedPrompt ?? prompt,
+      image_mode: result.imageMode,
+      image_status: 'generated',
+      image_cost_cents: result.costCents,
+      image_generated_at: new Date().toISOString(),
+      image_generation_count_total: nextTotal,
+      image_generation_day: dayIso,
+      image_generation_count_day: nextDayCount,
+    });
+
+    return res.json({
+      imageUrl: result.imageUrl,
+      revisedPrompt: result.revisedPrompt,
+      imageMode: result.imageMode,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ message: msg || 'Internal server error' });
+  }
 }
