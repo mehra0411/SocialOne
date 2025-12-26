@@ -119,6 +119,7 @@ export function DraftsPage() {
   });
   const [publishNowSubmitting, setPublishNowSubmitting] = useState(false);
   const [publishNowError, setPublishNowError] = useState<string | null>(null);
+  const [publishNowSuccess, setPublishNowSuccess] = useState<string | null>(null);
 
   // Row-scoped UI lock for in-progress publish actions (prevents duplicate submissions & disables only that row).
   const [rowPublishBusy, setRowPublishBusy] = useState<Record<string, boolean>>({});
@@ -126,6 +127,12 @@ export function DraftsPage() {
   function rowKey(postType: PostType, postId: string) {
     return `${postType}:${postId}`;
   }
+
+  useEffect(() => {
+    if (!publishNowSuccess) return;
+    const t = window.setTimeout(() => setPublishNowSuccess(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [publishNowSuccess]);
 
   useEffect(() => {
     let mounted = true;
@@ -283,6 +290,19 @@ export function DraftsPage() {
             Connect Instagram
           </Link>
           .
+        </div>
+      ) : null}
+
+      {publishNowSuccess ? (
+        <div className="flex items-start justify-between gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+          <div>{publishNowSuccess}</div>
+          <button
+            type="button"
+            className="text-emerald-900/70 hover:text-emerald-900"
+            onClick={() => setPublishNowSuccess(null)}
+          >
+            Dismiss
+          </button>
         </div>
       ) : null}
 
@@ -588,6 +608,7 @@ export function DraftsPage() {
                 onClick={async () => {
                   const k = rowKey(publishNowModal.postType, publishNowModal.postId);
                   setPublishNowError(null);
+                  setPublishNowSuccess(null);
                   setPublishNowSubmitting(true);
                   setRowPublishBusy((prev) => ({ ...prev, [k]: true }));
                   try {
@@ -605,6 +626,7 @@ export function DraftsPage() {
                       });
                     }
                     await refresh();
+                    setPublishNowSuccess('Published successfully to Instagram');
                     setPublishNowModal({ open: false, postType: 'feed', postId: '' });
                   } catch (e) {
                     setPublishNowError(friendlyErrorMessage(e));
