@@ -23,6 +23,112 @@ export class FeedDraftNotFoundError extends Error {
   }
 }
 
+type GeneratedFeedImageResult = {
+  imageUrl: string;
+  revisedPrompt: string | null;
+  imageMode: 'prompt_only' | 'image_edit';
+  costCents: number;
+};
+
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.trim().length > 0;
+}
+
+async function readOpenAIError(resp: Response): Promise<string> {
+  try {
+    const data = (await resp.json()) as any;
+    const msg = data?.error?.message ?? data?.message ?? '';
+    return msg || `HTTP ${resp.status}`;
+  } catch {
+    return `HTTP ${resp.status}`;
+  }
+}
+
+async function openAIImageGeneration(args: {
+  apiKey: string;
+  prompt: string;
+  size: '1024x1024';
+}): Promise<{ imageUrl: string; revisedPrompt: string | null }> {
+  const model = process.env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-1';
+
+  const resp = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${args.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      prompt: args.prompt,
+      size: args.size,
+      n: 1,
+      // Prefer URL if available; some models may return base64 instead.
+      response_format: 'url',
+    }),
+  });
+
+  if (!resp.ok) throw new Error(`OpenAI image generation error: ${await readOpenAIError(resp)}`);
+
+  const data = (await resp.json()) as {
+    data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
+  };
+
+  const first = data.data?.[0];
+  const url = first?.url;
+  const b64 = first?.b64_json;
+  const revisedPrompt = first?.revised_prompt ?? null;
+
+  if (url) return { imageUrl: url, revisedPrompt };
+  if (b64) return { imageUrl: `data:image/png;base64,${b64}`, revisedPrompt };
+  throw new Error('OpenAI image generation returned no image');
+}
+
+async function openAIImageEdit(args: {
+  apiKey: string;
+  prompt: string;
+  size: '1024x1024';
+  referenceImageUrl: string;
+}): Promise<{ imageUrl: string; revisedPrompt: string | null }> {
+  const model = process.env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-1';
+
+  const imgResp = await fetch(args.referenceImageUrl);
+  if (!imgResp.ok) throw new Error(`Failed to fetch reference image: ${imgResp.status}`);
+  const contentType = imgResp.headers.get('content-type') || 'image/png';
+  const bytes = await imgResp.arrayBuffer();
+
+  const form = new FormData();
+  form.set('model', model);
+  form.set('prompt', args.prompt);
+  form.set('size', args.size);
+  // Some OpenAI image edit endpoints expect `image` as a file upload.
+  form.set('image', new Blob([bytes], { type: contentType }), 'reference.png');
+  form.set('n', '1');
+  form.set('response_format', 'url');
+
+  const resp = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${args.apiKey}`,
+    },
+    body: form,
+  });
+
+  if (!resp.ok) throw new Error(`OpenAI image edit error: ${await readOpenAIError(resp)}`);
+
+  const data = (await resp.json()) as {
+    data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
+  };
+
+  const first = data.data?.[0];
+  const url = first?.url;
+  const b64 = first?.b64_json;
+  const revisedPrompt = first?.revised_prompt ?? null;
+
+  if (url) return { imageUrl: url, revisedPrompt };
+  if (b64) return { imageUrl: `data:image/png;base64,${b64}`, revisedPrompt };
+  throw new Error('OpenAI image edit returned no image');
+}
+
 function getSupabaseConfig() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -165,6 +271,51 @@ export async function deleteFeedDraft(userId: string, feedPostId: string): Promi
     // If the row existed but was not deleted, treat it as no longer a draft (race safety).
     throw new Error('Only drafts can be deleted');
   }
+}
+
+export async function generateFeedImage(
+  userId: string,
+  brandId: string,
+  feedDraftId: string,
+  prompt: string,
+  referenceImageUrl?: string
+): Promise<GeneratedFeedImageResult> {
+  if (!userId) throw new Error('Missing userId');
+  if (!brandId) throw new Error('Missing brandId');
+  if (!feedDraftId) throw new Error('Missing feedDraftId');
+  if (!isNonEmptyString(prompt)) throw new Error('prompt must be non-empty');
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set in environment variables');
+  }
+
+  // Enforce brand ownership before generating for a brand-scoped draft.
+  const brand = await getBrandById(brandId, userId);
+  if (!brand) throw new Error('Forbidden');
+
+  const draft = await getFeedPostById(feedDraftId);
+  if (!draft) throw new FeedDraftNotFoundError();
+  if (draft.brand_id !== brandId) throw new Error('Feed draft does not belong to the provided brandId');
+
+  const cleanedRef = isNonEmptyString(referenceImageUrl) ? referenceImageUrl.trim() : null;
+  const imageMode: GeneratedFeedImageResult['imageMode'] = cleanedRef ? 'image_edit' : 'prompt_only';
+  const size: '1024x1024' = '1024x1024';
+
+  const result =
+    imageMode === 'image_edit'
+      ? await openAIImageEdit({ apiKey, prompt: prompt.trim(), size, referenceImageUrl: cleanedRef! })
+      : await openAIImageGeneration({ apiKey, prompt: prompt.trim(), size });
+
+  // Estimate only (acceptable per requirements). Keep simple and deterministic.
+  const costCents = imageMode === 'image_edit' ? 15 : 10;
+
+  return {
+    imageUrl: result.imageUrl,
+    revisedPrompt: result.revisedPrompt,
+    imageMode,
+    costCents,
+  };
 }
 export async function publishFeedPost(
   userId: string,
