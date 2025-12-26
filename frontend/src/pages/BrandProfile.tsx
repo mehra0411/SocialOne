@@ -62,7 +62,7 @@ export function BrandProfilePage() {
 
   if (!activeBrandId) return <Navigate to="/brands" replace />;
 
-  const titleName = activeBrandName ?? `Brand ${activeBrandId.slice(0, 8)}…`;
+  const titleName = activeBrandName ?? 'Untitled brand';
 
   useEffect(() => {
     const fromLocal = loadLocalProfile(activeBrandId) ?? {};
@@ -88,7 +88,6 @@ export function BrandProfilePage() {
           <div className="space-y-1">
             <div className="text-sm font-medium text-zinc-900">Active brand</div>
             <div className="text-sm text-zinc-600">{titleName}</div>
-            <div className="font-mono text-xs text-zinc-500">{activeBrandId}</div>
           </div>
           <div className="flex items-center gap-2">
             <Link className={buttonClassName({ variant: 'secondary', size: 'sm' })} to="/brands">

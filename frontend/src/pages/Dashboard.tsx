@@ -199,7 +199,7 @@ export function DashboardPage() {
                 </option>
                 {brands.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({b.id.slice(0, 8)}…)
+                    {b.name}
                   </option>
                 ))}
               </select>
@@ -354,7 +354,7 @@ export function DashboardPage() {
                 <div className="mt-3 grid gap-3">
                   <div className="text-xs text-zinc-500">
                     <span className="font-medium text-zinc-700">Brand:</span>{' '}
-                    {selectedBrand?.name ?? 'Unknown'} ({draft.brand_id})
+                    {selectedBrand?.name ?? 'Unknown'}
                   </div>
 
                   {draft.image_url || imageUrl ? (

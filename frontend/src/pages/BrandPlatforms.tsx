@@ -41,7 +41,7 @@ export function BrandPlatformsPage() {
 
   if (!activeBrandId) return <Navigate to="/brands" replace />;
 
-  const brandLabel = activeBrandName ?? `Brand ${activeBrandId.slice(0, 8)}…`;
+  const brandLabel = activeBrandName ?? 'Untitled brand';
 
   const derivedState = useMemo(() => {
     if (!status) return { state: 'unknown' as const, connected: false, accountName: null, expiresAt: null };
@@ -96,7 +96,6 @@ export function BrandPlatformsPage() {
           <div className="space-y-1">
             <div className="text-sm font-medium text-zinc-900">Active brand</div>
             <div className="text-sm text-zinc-600">{brandLabel}</div>
-            <div className="font-mono text-xs text-zinc-500">{activeBrandId}</div>
           </div>
           <div className="flex items-center gap-2">
             <Link className={buttonClassName({ variant: 'secondary', size: 'sm' })} to="/brands">

@@ -185,7 +185,6 @@ export function BrandsPage() {
               >
                 <div className="min-w-0">
                   <div className="truncate font-medium text-zinc-900">{displayName}</div>
-                  <div className="mt-0.5 font-mono text-xs text-zinc-500">{b.id}</div>
                 </div>
 
                 <div className="flex items-center gap-2">

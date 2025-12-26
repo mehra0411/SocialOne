@@ -159,7 +159,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               <>
                 {activeBrandId ? (
                   <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-                    Brand: {activeBrandName ?? activeBrandId.slice(0, 8)}
+                    Brand: {activeBrandName ?? 'Untitled brand'}
                   </span>
                 ) : null}
                 <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">

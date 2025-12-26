@@ -181,8 +181,18 @@ export function DraftsPage() {
   const [publishNowTemporaryFailure, setPublishNowTemporaryFailure] = useState(false);
   const [publishBlockedAttempt, setPublishBlockedAttempt] = useState(false);
 
+  const [viewModal, setViewModal] = useState<{
+    open: boolean;
+    postType: PostType;
+    record: FeedPost | Reel | null;
+  }>({ open: false, postType: 'feed', record: null });
+
   // Row-scoped UI lock for in-progress publish actions (prevents duplicate submissions & disables only that row).
   const [rowPublishBusy, setRowPublishBusy] = useState<Record<string, boolean>>({});
+
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; feedPostId: string }>({ open: false, feedPostId: '' });
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function rowKey(postType: PostType, postId: string) {
     return `${postType}:${postId}`;
@@ -328,7 +338,7 @@ export function DraftsPage() {
           </option>
           {brands.map((b) => (
             <option key={b.id} value={b.id}>
-              {b.name} ({b.id.slice(0, 8)}…)
+              {b.name}
             </option>
           ))}
         </select>
@@ -421,7 +431,7 @@ export function DraftsPage() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-zinc-900">
-              {tab === 'feed' ? 'Feed posts' : 'Reels'} for {brandName || brandId}
+              {tab === 'feed' ? 'Feed posts' : 'Reels'} for {brandName || 'Untitled brand'}
             </h2>
             <p className="text-sm text-zinc-600">Statuses: draft / scheduled / publishing / published / failed</p>
           </div>
@@ -502,7 +512,7 @@ export function DraftsPage() {
                       <div className="flex flex-col gap-1">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
                           <span className="truncate">
-                            <span className="font-medium text-zinc-700">Brand:</span> {brandName || brandId}
+                            <span className="font-medium text-zinc-700">Brand:</span> {brandName || 'Untitled brand'}
                           </span>
                           <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
                             <span
@@ -513,6 +523,15 @@ export function DraftsPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
+                        <button
+                          className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+                          disabled={actionsBusy}
+                          onClick={() => {
+                            setViewModal({ open: true, postType: tab, record: r as FeedPost | Reel });
+                          }}
+                        >
+                          View
+                        </button>
                         <button
                           className={buttonClassName({ variant: 'secondary', size: 'sm' })}
                           disabled={!canSchedule || actionsBusy}
@@ -542,6 +561,24 @@ export function DraftsPage() {
                           }}
                         >
                           {isRowPublishing ? 'Publishing…' : 'Publish now'}
+                        </button>
+                        <button
+                          className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+                          disabled={
+                            tab !== 'feed' ||
+                            status !== 'draft' ||
+                            actionsBusy ||
+                            deleteSubmitting
+                          }
+                          onClick={() => {
+                            if (tab !== 'feed') return;
+                            if (status !== 'draft') return;
+                            setDeleteError(null);
+                            setDeleteModal({ open: true, feedPostId: r.id });
+                          }}
+                          title={tab !== 'feed' ? 'Only feed drafts can be deleted here' : status !== 'draft' ? 'Only drafts can be deleted' : undefined}
+                        >
+                          Delete
                         </button>
                         </div>
 
@@ -583,6 +620,138 @@ export function DraftsPage() {
           </div>
         ) : null}
       </section>
+
+      {/* Delete draft modal (feed only) */}
+      {deleteModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-zinc-900">Delete Draft</h3>
+                <p className="text-sm text-zinc-600">Delete this draft? This cannot be undone.</p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                onClick={() => setDeleteModal({ open: false, feedPostId: '' })}
+                aria-label="Close"
+                disabled={deleteSubmitting}
+              >
+                ✕
+              </button>
+            </div>
+
+            {deleteError ? (
+              <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
+            ) : null}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                className={buttonClassName({ variant: 'secondary' })}
+                onClick={() => setDeleteModal({ open: false, feedPostId: '' })}
+                disabled={deleteSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                className={buttonClassName({ variant: 'primary' })}
+                disabled={deleteSubmitting}
+                onClick={async () => {
+                  setDeleteError(null);
+                  setDeleteSubmitting(true);
+                  try {
+                    await apiFetch(`/api/feed/${deleteModal.feedPostId}`, {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ brandId }),
+                    });
+                    setFeedPosts((prev) => prev.filter((p) => p.id !== deleteModal.feedPostId));
+                    setDeleteModal({ open: false, feedPostId: '' });
+                  } catch (e) {
+                    setDeleteError(friendlyErrorMessage(e));
+                  } finally {
+                    setDeleteSubmitting(false);
+                  }
+                }}
+              >
+                {deleteSubmitting ? 'Deleting…' : 'Confirm delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Draft view modal (read-only) */}
+      {viewModal.open && viewModal.record ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-zinc-900">Draft details</h3>
+                <p className="text-sm text-zinc-600">
+                  Read-only preview (no editing or publishing from this view).
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg px-2 py-1 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                onClick={() => setViewModal({ open: false, postType: 'feed', record: null })}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-4">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
+                  <div className="text-xs font-medium text-zinc-600">Brand</div>
+                  <div className="mt-1">{brandName || 'Unknown brand'}</div>
+                </div>
+                <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
+                  <div className="text-xs font-medium text-zinc-600">Status</div>
+                  <div className="mt-1">{formatStatusLabel((viewModal.record as any).status)}</div>
+                </div>
+                <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
+                  <div className="text-xs font-medium text-zinc-600">Created</div>
+                  <div className="mt-1">{formatDate((viewModal.record as any).created_at ?? null)}</div>
+                </div>
+              </div>
+
+              {viewModal.postType === 'feed' && (viewModal.record as FeedPost).image_url ? (
+                <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
+                  <img
+                    src={(viewModal.record as FeedPost).image_url ?? ''}
+                    alt="Draft image"
+                    className="max-h-[420px] w-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                  <div className="px-3 py-2 text-xs text-zinc-600">Image preview</div>
+                </div>
+              ) : null}
+
+              <div>
+                <div className="text-xs font-medium text-zinc-600">Caption</div>
+                <div className="mt-2 whitespace-pre-wrap rounded-2xl border border-zinc-200 bg-white p-4 text-sm text-zinc-900">
+                  {(viewModal.record as any).caption?.trim?.() ? (viewModal.record as any).caption : '(empty caption)'}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                className={buttonClassName({ variant: 'secondary' })}
+                onClick={() => setViewModal({ open: false, postType: 'feed', record: null })}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Schedule modal */}
       {scheduleModal.open ? (
@@ -673,7 +842,7 @@ export function DraftsPage() {
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-zinc-900">Confirm Publish</h3>
               <p className="text-sm text-zinc-600">
-                You’re about to publish this post to Instagram for Brand: {brandName || brandId}
+                You’re about to publish this post to Instagram for Brand: {brandName || 'Untitled brand'}
               </p>
             </div>
 
