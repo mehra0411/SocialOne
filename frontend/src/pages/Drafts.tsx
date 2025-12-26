@@ -120,6 +120,13 @@ export function DraftsPage() {
   const [publishNowSubmitting, setPublishNowSubmitting] = useState(false);
   const [publishNowError, setPublishNowError] = useState<string | null>(null);
 
+  // Row-scoped UI lock for in-progress publish actions (prevents duplicate submissions & disables only that row).
+  const [rowPublishBusy, setRowPublishBusy] = useState<Record<string, boolean>>({});
+
+  function rowKey(postType: PostType, postId: string) {
+    return `${postType}:${postId}`;
+  }
+
   useEffect(() => {
     let mounted = true;
     setBrandsError(null);
@@ -358,7 +365,8 @@ export function DraftsPage() {
                 const canPublishNow = status === 'scheduled' || status === 'failed';
                 const platform = r.platform ?? 'instagram';
                 const platformLabel = platform === 'instagram' ? 'Instagram' : platform;
-                const actionsBusy = scheduleSubmitting || publishNowSubmitting || igLoading;
+                const isRowPublishing = Boolean(rowPublishBusy[rowKey(tab, r.id)]) || status === 'publishing';
+                const actionsBusy = scheduleSubmitting || igLoading || isRowPublishing;
                 const publishBlocked = igConnected !== true;
 
                 const caption = typeof r.caption === 'string' ? r.caption.trim() : '';
@@ -426,7 +434,7 @@ export function DraftsPage() {
                             setPublishNowModal({ open: true, postType: tab, postId: r.id });
                           }}
                         >
-                          Publish now
+                          {isRowPublishing ? 'Publishing…' : 'Publish now'}
                         </button>
                         </div>
 
@@ -578,8 +586,10 @@ export function DraftsPage() {
                 className={buttonClassName({ variant: 'primary' })}
                 disabled={publishNowSubmitting}
                 onClick={async () => {
+                  const k = rowKey(publishNowModal.postType, publishNowModal.postId);
                   setPublishNowError(null);
                   setPublishNowSubmitting(true);
+                  setRowPublishBusy((prev) => ({ ...prev, [k]: true }));
                   try {
                     if (publishNowModal.postType === 'feed') {
                       await apiFetch('/api/feed/publish-now', {
@@ -600,6 +610,11 @@ export function DraftsPage() {
                     setPublishNowError(friendlyErrorMessage(e));
                   } finally {
                     setPublishNowSubmitting(false);
+                    setRowPublishBusy((prev) => {
+                      const next = { ...prev };
+                      delete next[k];
+                      return next;
+                    });
                   }
                 }}
               >
