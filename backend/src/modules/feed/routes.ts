@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { deleteFeedDraft, feedGenerate, feedListPosts, feedPublish, feedPublishNow } from './feed.controller';
+import { deleteFeedDraft, feedGenerate, feedImageGenerate, feedListPosts, feedPublish, feedPublishNow } from './feed.controller';
 import { authenticate } from '../../middlewares/authenticate';
 import { requireActiveAccount } from '../../middlewares/requireActiveAccount';
 import { requireBrandAccess } from '../../middlewares/requireBrandAccess';
@@ -37,6 +37,14 @@ router.post(
   requireActiveAccount,
   requireBrandAccess,
   asHandler(feedPublishNow)
+);
+
+router.post(
+  '/image/generate',
+  authenticate,
+  requireActiveAccount,
+  requireBrandAccess,
+  asHandler(feedImageGenerate)
 );
 
 router.delete(
