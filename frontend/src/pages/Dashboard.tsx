@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { supabase } from '../lib/supabaseClient';
 import { uploadImageAndGetPublicUrl } from '../lib/storage';
 import { buttonClassName } from '../ui/button';
 import { useActiveBrand } from '../brands/activeBrand';
@@ -30,6 +31,37 @@ type Reel = {
 
 type ApiBrand = { id: string; name: string | null };
 
+async function apiJsonWithStatus<T>(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; json: T | null }> {
+  const rawBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!rawBase) throw new Error('VITE_API_BASE_URL is not set');
+  const base = rawBase.replace(/\/+$/, '');
+  const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
+
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  const accessToken = session?.access_token;
+  if (!accessToken) throw new Error('You are not authenticated. Please sign in again and retry.');
+
+  const resp = await fetch(url, {
+    ...init,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      ...((init?.headers as Record<string, string> | undefined) ?? {}),
+    },
+  });
+
+  let json: T | null = null;
+  try {
+    json = (await resp.json()) as T;
+  } catch {
+    json = null;
+  }
+
+  return { ok: resp.ok, status: resp.status, json };
+}
+
 export function DashboardPage() {
   const { activeBrandId, setActiveBrand } = useActiveBrand();
 
@@ -42,8 +74,18 @@ export function DashboardPage() {
   const [igConnected, setIgConnected] = useState<boolean | null>(null);
   const [igHint, setIgHint] = useState<string | null>(null);
 
-  const [imageUrl, setImageUrl] = useState('');
-  const [prompt, setPrompt] = useState('');
+  const [mediaMode, setMediaMode] = useState<'ai_generate' | 'ai_enhance'>('ai_generate');
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [captionPrompt, setCaptionPrompt] = useState('');
+
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string>('');
+  const [referenceUploading, setReferenceUploading] = useState(false);
+
+  const [, setGeneratedImageUrl] = useState('');
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewCaption, setPreviewCaption] = useState<string | null>(null);
 
   const [draft, setDraft] = useState<FeedPost | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -60,6 +102,14 @@ export function DashboardPage() {
   const [reelGenerating, setReelGenerating] = useState(false);
   const [reelPublishing, setReelPublishing] = useState(false);
   const [reelError, setReelError] = useState<string | null>(null);
+
+  function sanitizeImagePrompt(raw: string): string {
+    // Strip surrounding quotes (common when users paste prompts) and trim whitespace.
+    // Keep it simple and deterministic.
+    let s = raw.trim();
+    s = s.replace(/^["'“”]+/, '').replace(/["'“”]+$/, '').trim();
+    return s;
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -222,25 +272,120 @@ export function DashboardPage() {
             </div>
 
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Image URL (optional)</label>
-              <input
-                className="rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
-                placeholder="https://…"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-              />
-              <p className="text-xs text-zinc-500">
-                Used for preview and publishing. Must be public for Instagram publishing.
-              </p>
+              <label className="text-sm font-medium text-zinc-900">Media</label>
+              <div className="mt-1 grid gap-2 rounded-2xl border border-zinc-200 bg-white p-4">
+                <label className="flex items-center gap-2 text-sm text-zinc-800">
+                  <input
+                    type="radio"
+                    name="mediaMode"
+                    value="ai_generate"
+                    checked={mediaMode === 'ai_generate'}
+                    onChange={() => {
+                      setImageError(null);
+                      setMediaMode('ai_generate');
+                      setReferenceImageUrl('');
+                    }}
+                  />
+                  Generate image with AI
+                </label>
+                <label className="flex items-center gap-2 text-sm text-zinc-800">
+                  <input
+                    type="radio"
+                    name="mediaMode"
+                    value="ai_enhance"
+                    checked={mediaMode === 'ai_enhance'}
+                    onChange={() => {
+                      setImageError(null);
+                      setMediaMode('ai_enhance');
+                    }}
+                  />
+                  Upload image and enhance with AI
+                </label>
+
+                {mediaMode === 'ai_enhance' ? (
+                  <div className="mt-2 grid gap-1">
+                    <label className="text-sm font-medium text-zinc-900">Upload image</label>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="block w-full text-sm"
+                      disabled={referenceUploading || generating}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setImageError(null);
+                        if (!file) {
+                          setReferenceImageUrl('');
+                          return;
+                        }
+
+                        const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+                        if (!allowed.has(file.type)) {
+                          setImageError('Upload must be a JPG, PNG, or WEBP file.');
+                          e.currentTarget.value = '';
+                          return;
+                        }
+                        if (file.size > 5 * 1024 * 1024) {
+                          setImageError('Upload must be 5MB or smaller.');
+                          e.currentTarget.value = '';
+                          return;
+                        }
+
+                        setReferenceUploading(true);
+                        try {
+                          const url = await uploadImageAndGetPublicUrl(file);
+                          setReferenceImageUrl(url);
+                        } catch (err) {
+                          setImageError(err instanceof Error ? err.message : 'Failed to upload image');
+                          e.currentTarget.value = '';
+                        } finally {
+                          setReferenceUploading(false);
+                        }
+                      }}
+                    />
+                    {referenceUploading ? <div className="text-xs text-zinc-500">Uploading…</div> : null}
+                    {referenceImageUrl ? (
+                      <div className="flex items-center justify-between gap-2 text-xs text-zinc-600">
+                        <span className="truncate">Reference image uploaded</span>
+                        <button
+                          type="button"
+                          className="font-medium text-[#4F46E5] hover:text-[#4338CA]"
+                          onClick={() => setReferenceImageUrl('')}
+                          disabled={referenceUploading || generating}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-zinc-500">Upload is required for this mode.</div>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="mt-2 grid gap-1">
+                  <label className="text-sm font-medium text-zinc-900">Image Prompt</label>
+                  <textarea
+                    className="min-h-24 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
+                    placeholder="Describe the image you want…"
+                    value={imagePrompt}
+                    onChange={(e) => {
+                      setImageError(null);
+                      setImagePrompt(e.target.value);
+                    }}
+                  />
+                  <div className="text-xs text-zinc-500">Required for both modes.</div>
+                </div>
+
+                {imageError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{imageError}</div> : null}
+              </div>
             </div>
 
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Prompt (optional)</label>
+              <label className="text-sm font-medium text-zinc-900">Caption Prompt (optional but recommended)</label>
               <textarea
                 className="min-h-24 rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
                 placeholder="Any context for the caption (offer, tone, etc)…"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                value={captionPrompt}
+                onChange={(e) => setCaptionPrompt(e.target.value)}
               />
             </div>
 
@@ -259,23 +404,78 @@ export function DashboardPage() {
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 className={buttonClassName({ variant: 'primary' })}
-                disabled={!selectedBrandId || generating}
+                disabled={
+                  !selectedBrandId ||
+                  generating ||
+                  referenceUploading ||
+                  !sanitizeImagePrompt(imagePrompt) ||
+                  (mediaMode === 'ai_enhance' && !referenceImageUrl)
+                }
                 onClick={async () => {
                   setError(null);
                   setPublishSuccess(null);
                   setDraft(null);
+                  setImageError(null);
+                  setPreviewCaption(null);
                   setGenerating(true);
                   try {
-                    const resp = await apiFetch<FeedPost>('/api/feed/generate', {
+                    const sanitizedPrompt = sanitizeImagePrompt(imagePrompt);
+
+                    // 1) Generate/transform image with AI (preview-only mode).
+                    const imageGeneratePayload: { brandId: string; prompt: string; referenceImageUrl?: string } = {
+                      brandId: selectedBrandId,
+                      prompt: sanitizedPrompt,
+                      ...(mediaMode === 'ai_enhance' ? { referenceImageUrl } : {}),
+                    };
+                    const imgResp = await apiJsonWithStatus<{ imageUrl: string; revisedPrompt: string | null; imageMode: string }>(
+                      '/api/feed/image/generate',
+                      {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          brandId: imageGeneratePayload.brandId,
+                          prompt: imageGeneratePayload.prompt,
+                          ...(mediaMode === 'ai_enhance' ? { referenceImageUrl: imageGeneratePayload.referenceImageUrl } : {}),
+                        }),
+                      }
+                    );
+
+                    if (!imgResp.ok) {
+                      const msg =
+                        (imgResp.json as any)?.message ||
+                        (imgResp.json as any)?.error ||
+                        `Request failed: ${imgResp.status}`;
+                      if (imgResp.status === 429) {
+                        setImageError(msg);
+                      } else {
+                        setImageError('Failed to generate image');
+                      }
+                      return;
+                    }
+
+                    const imageUrl = (imgResp.json as any)?.imageUrl as string | undefined;
+                    const revised = (imgResp.json as any)?.revisedPrompt as string | null | undefined;
+                    if (!imageUrl) {
+                      setImageError('Failed to generate image');
+                      return;
+                    }
+
+                    setGeneratedImageUrl(imageUrl);
+                    setPreviewImageUrl(imageUrl);
+                    if (revised && revised.trim()) setImagePrompt(revised.trim());
+
+                    // 2) Generate the post using the AI-generated image (this creates/saves the draft internally).
+                    const captionContext = captionPrompt.trim() || (revised?.trim() || sanitizedPrompt);
+                    const post = await apiFetch<FeedPost>('/api/feed/generate', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         brandId: selectedBrandId,
-                        imageUrl: imageUrl.trim() || undefined,
-                        prompt: prompt.trim() || undefined,
+                        imageUrl,
+                        prompt: captionContext,
                       }),
                     });
-                    setDraft(resp);
+                    setDraft(post);
+                    setPreviewCaption(post.caption ?? null);
                   } catch (e) {
                     setError(e instanceof Error ? e.message : 'Failed to generate');
                   } finally {
@@ -283,7 +483,7 @@ export function DashboardPage() {
                   }
                 }}
               >
-                {generating ? 'Generating…' : 'Generate Content'}
+                {generating ? 'Generating…' : 'Generate Post'}
               </button>
 
               {hasBrands ? (
@@ -345,45 +545,41 @@ export function DashboardPage() {
             <div className="rounded-2xl border border-zinc-200 p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-zinc-900">Draft preview</h3>
-                <span className="text-xs text-zinc-500">
-                  {draft ? `status: ${draft.status}` : 'no draft yet'}
-                </span>
+                  <span className="text-xs text-zinc-500">Preview</span>
               </div>
 
-              {draft ? (
-                <div className="mt-3 grid gap-3">
-                  <div className="text-xs text-zinc-500">
-                    <span className="font-medium text-zinc-700">Brand:</span>{' '}
-                    {selectedBrand?.name ?? 'Unknown'}
-                  </div>
-
-                  {draft.image_url || imageUrl ? (
-                    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
-                      <img
-                        src={draft.image_url ?? imageUrl}
-                        alt="Draft"
-                        className="h-56 w-full object-cover"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                      <div className="px-3 py-2 text-xs text-zinc-600">Image preview</div>
-                    </div>
-                  ) : null}
-
-                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-900 whitespace-pre-wrap">
-                    {draft.caption || '(empty caption)'}
-                  </div>
-
-                  <div className="text-xs text-zinc-500">
-                    <span className="font-medium text-zinc-700">feedPostId:</span> {draft.id}
-                  </div>
+              <div className="mt-3 grid gap-3">
+                <div className="text-xs text-zinc-500">
+                  <span className="font-medium text-zinc-700">Brand:</span>{' '}
+                  {selectedBrand?.name ?? 'Unknown'}
                 </div>
-              ) : (
-                <div className="mt-3 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
-                  Generate a draft to preview the caption here.
-                </div>
-              )}
+
+                {previewImageUrl ? (
+                  <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                    <img
+                      src={previewImageUrl}
+                      alt="Preview"
+                      className="h-56 w-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="px-3 py-2 text-xs text-zinc-600">Image preview</div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+                    No image yet. Choose a media mode and click <span className="font-medium text-zinc-900">Generate Post</span>.
+                  </div>
+                )}
+
+                {previewCaption ? (
+                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-900 whitespace-pre-wrap">{previewCaption}</div>
+                ) : (
+                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+                    Caption will appear here after generation.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
