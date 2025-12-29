@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { PlatformId } from '../../platforms/types';
+import { supabaseAdmin } from '../../config/supabase';
 
 export type FeedPostStatus = 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
 
@@ -69,17 +70,11 @@ export async function createDraftFeedPost(args: CreateDraftArgs): Promise<FeedPo
     status: 'draft' as const,
   };
 
-  const rows = await supabaseRest<FeedPost[]>('/rest/v1/feed_posts?select=*', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-    },
-    body: JSON.stringify(row),
-  });
-
-  if (!rows.length) throw new Error('Failed to create draft feed post');
-  return rows[0];
+  // Use the existing service-role Supabase client to bypass RLS for server-side writes.
+  const { data, error } = await supabaseAdmin.from('feed_posts').insert(row).select('*').limit(1).maybeSingle();
+  if (error) throw new Error(error.message || 'Failed to create draft feed post');
+  if (!data) throw new Error('Failed to create draft feed post');
+  return data as FeedPost;
 }
 
 export async function getFeedPostById(feedPostId: string): Promise<FeedPost | null> {

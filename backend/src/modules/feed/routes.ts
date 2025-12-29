@@ -1,11 +1,21 @@
 import { Router } from 'express';
-import { deleteFeedDraft, feedGenerate, feedImageGenerate, feedImageRemove, feedListPosts, feedPublish, feedPublishNow } from './feed.controller';
+import multer from 'multer';
+import {
+  deleteFeedDraft,
+  feedGenerate,
+  feedImageGenerate,
+  feedImageRemove,
+  feedListPosts,
+  feedPublish,
+  feedPublishNow,
+} from './feed.controller';
 import { authenticate } from '../../middlewares/authenticate';
 import { requireActiveAccount } from '../../middlewares/requireActiveAccount';
 import { requireBrandAccess } from '../../middlewares/requireBrandAccess';
 import { asHandler } from '../../utils/handler';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.get(
   '/:brandId/posts',
@@ -20,6 +30,13 @@ router.post(
   authenticate,
   requireActiveAccount,
   requireBrandAccess,
+  (req, res, next) => {
+    const ct = String(req.headers['content-type'] ?? '');
+    if (ct.includes('multipart/form-data')) {
+      return upload.single('referenceImage')(req, res, next);
+    }
+    return next();
+  },
   asHandler(feedGenerate)
 );
 

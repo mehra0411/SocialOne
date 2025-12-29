@@ -18,20 +18,27 @@ export async function requireBrandAccess(
 
     const userId = user.id;
 
-    // Brand ID can come from params or body
-    const brandId =
-      req.params.brandId ||
-      req.body.brandId;
+    /**
+     * TEMP: Allow access.
+     * You can add DB ownership checks later.
+     */
+    const contentType = String(req.headers['content-type'] ?? '');
+
+    // Brand ID can come from body or params (body may be undefined for multipart until multer runs)
+    const body = ((req as any).body ?? {}) as Record<string, any>;
+    const brandId = body.brandId || req.params?.brandId;
+
+    // For multipart/form-data requests, body parsing happens later in the route (multer),
+    // so brandId may not be available yet here. Let the request continue; controller will validate.
+    if (!brandId && contentType.includes('multipart/form-data')) {
+      return next();
+    }
 
     if (!brandId) {
       return res.status(400).json({ message: 'Brand ID is required' });
     }
 
-    /**
-     * TEMP: Allow access.
-     * You can add DB ownership checks later.
-     */
-    next();
+    return next();
   } catch (error) {
     console.error('requireBrandAccess error:', error);
     return res.status(500).json({ message: 'Internal server error' });

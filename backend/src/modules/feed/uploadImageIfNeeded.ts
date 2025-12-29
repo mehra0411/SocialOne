@@ -1,9 +1,30 @@
 import { randomUUID } from 'crypto';
+import { supabaseAdmin } from '../../config/supabase';
 
 function requiredEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env: ${name}`);
   return v;
+}
+
+export async function uploadImageBufferToPublicUrl(args: {
+  bytes: Buffer;
+  mime: string;
+  prefix?: string;
+}): Promise<string> {
+  const bucket = requiredEnv('SUPABASE_STORAGE_BUCKET');
+  const ext = args.mime === 'image/png' ? 'png' : args.mime === 'image/webp' ? 'webp' : 'jpg';
+  const objectPath = `${args.prefix ?? 'feed'}/${randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage.from(bucket).upload(objectPath, args.bytes, {
+    contentType: args.mime,
+    upsert: true,
+  });
+  if (uploadError) throw new Error(uploadError.message || 'Storage upload failed');
+
+  const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(objectPath);
+  if (!data?.publicUrl) throw new Error('Failed to get public URL');
+  return data.publicUrl;
 }
 
 /**
@@ -18,10 +39,6 @@ export async function uploadImageIfNeeded(imageUrlOrData: string): Promise<strin
 
   // Handle data URLs (base64 images)
   if (imageUrlOrData.startsWith('data:')) {
-    const supabaseUrl = requiredEnv('SUPABASE_URL').replace(/\/+$/, '');
-    const serviceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY');
-    const bucket = requiredEnv('SUPABASE_STORAGE_BUCKET');
-
     const match = /^data:(?<mime>[^;]+);base64,(?<b64>.+)$/i.exec(imageUrlOrData);
     const mime = match?.groups?.mime;
     const b64 = match?.groups?.b64;
@@ -31,37 +48,7 @@ export async function uploadImageIfNeeded(imageUrlOrData: string): Promise<strin
     }
 
     const bytes = Buffer.from(b64, 'base64');
-
-    const ext =
-      mime === 'image/png'
-        ? 'png'
-        : mime === 'image/webp'
-        ? 'webp'
-        : 'jpg';
-
-    const objectPath = `feed/${randomUUID()}.${ext}`;
-
-    const putUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${objectPath}`;
-
-    const resp = await fetch(putUrl, {
-      method: 'PUT', // ✅ MUST be PUT
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        'Content-Type': mime,
-        'Content-Length': bytes.length.toString(), // ✅ important
-        'x-upsert': 'true',
-      },
-      body: bytes,
-    });
-
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      throw new Error(`Storage upload failed: ${resp.status} ${text}`);
-    }
-
-    // Bucket must be public
-    return `${supabaseUrl}/storage/v1/object/public/${bucket}/${objectPath}`;
+    return await uploadImageBufferToPublicUrl({ bytes, mime, prefix: 'feed' });
   }
 
   throw new Error('Unsupported image_url format (must be http(s) URL or data: URL)');

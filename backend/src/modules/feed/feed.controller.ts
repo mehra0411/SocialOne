@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../../types/auth';
 import { deleteFeedDraft as deleteFeedDraftService, FeedDraftNotFoundError, generateFeedDraft, generateFeedImage, generateFeedImagePreview } from './feed.service';
 import { manualPublishFeedPost, publishFeedPost } from './feed.publish.service';
 import { listFeedPostsByBrand, setFeedPostScheduledAt } from './feed.repository';
+import { uploadImageBufferToPublicUrl } from './uploadImageIfNeeded';
 
 function getSupabaseConfig() {
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -95,16 +96,47 @@ export async function feedGenerate(
   res: Response
 ) {
   const userId = req.user.id;
-  const { brandId, imageUrl, prompt } = req.body;
+  const { brandId, imageUrl, prompt, imagePrompt } = req.body as {
+    brandId?: string;
+    imageUrl?: string;
+    prompt?: string;
+    imagePrompt?: string;
+  };
 
   if (!brandId) {
     return res.status(400).json({ message: 'brandId is required' });
   }
 
+  // Upload+enhance mode: accept a reference image file and generate the final image on the backend.
+  const referenceImage = (req as any).file as { buffer: Buffer; mimetype: string } | undefined;
+  let finalImageUrl: string | undefined = imageUrl;
+  let finalPrompt: string | undefined = prompt;
+
+  if (referenceImage) {
+    if (!imagePrompt || !imagePrompt.trim()) {
+      return res.status(400).json({ message: 'imagePrompt is required when referenceImage is provided' });
+    }
+
+    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (!allowed.has(referenceImage.mimetype)) {
+      return res.status(400).json({ message: 'Upload must be a JPG, PNG, or WEBP file.' });
+    }
+
+    const referenceUrl = await uploadImageBufferToPublicUrl({
+      bytes: referenceImage.buffer,
+      mime: referenceImage.mimetype,
+      prefix: 'uploads',
+    });
+
+    const img = await generateFeedImagePreview({ prompt: imagePrompt, referenceImageUrl: referenceUrl });
+    finalImageUrl = img.imageUrl;
+    finalPrompt = finalPrompt ?? imagePrompt;
+  }
+
   const result = await generateFeedDraft(userId, {
     brandId,
-    imageUrl,
-    prompt,
+    imageUrl: finalImageUrl,
+    prompt: finalPrompt,
   });
 
   res.json(result);
@@ -281,3 +313,4 @@ export async function feedImageRemove(req: AuthenticatedRequest, res: Response) 
     return res.status(500).json({ message: msg || 'Internal server error' });
   }
 }
+

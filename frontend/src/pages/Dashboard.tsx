@@ -78,8 +78,7 @@ export function DashboardPage() {
   const [imagePrompt, setImagePrompt] = useState('');
   const [captionPrompt, setCaptionPrompt] = useState('');
 
-  const [referenceImageUrl, setReferenceImageUrl] = useState<string>('');
-  const [referenceUploading, setReferenceUploading] = useState(false);
+  const [referenceImageFile, setReferenceImageFile] = useState<File | null>(null);
 
   const [, setGeneratedImageUrl] = useState('');
   const [imageError, setImageError] = useState<string | null>(null);
@@ -297,6 +296,7 @@ export function DashboardPage() {
                     onChange={() => {
                       setImageError(null);
                       setMediaMode('ai_enhance');
+                      setReferenceImageFile(null);
                     }}
                   />
                   Upload image and enhance with AI
@@ -309,12 +309,12 @@ export function DashboardPage() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       className="block w-full text-sm"
-                      disabled={referenceUploading || generating}
+                      disabled={generating}
                       onChange={async (e) => {
                         const file = e.target.files?.[0] ?? null;
                         setImageError(null);
                         if (!file) {
-                          setReferenceImageUrl('');
+                          setReferenceImageFile(null);
                           return;
                         }
 
@@ -330,27 +330,17 @@ export function DashboardPage() {
                           return;
                         }
 
-                        setReferenceUploading(true);
-                        try {
-                          const url = await uploadImageAndGetPublicUrl(file);
-                          setReferenceImageUrl(url);
-                        } catch (err) {
-                          setImageError(err instanceof Error ? err.message : 'Failed to upload image');
-                          e.currentTarget.value = '';
-                        } finally {
-                          setReferenceUploading(false);
-                        }
+                        setReferenceImageFile(file);
                       }}
                     />
-                    {referenceUploading ? <div className="text-xs text-zinc-500">Uploading…</div> : null}
-                    {referenceImageUrl ? (
+                    {referenceImageFile ? (
                       <div className="flex items-center justify-between gap-2 text-xs text-zinc-600">
-                        <span className="truncate">Reference image uploaded</span>
+                        <span className="truncate">Reference image selected</span>
                         <button
                           type="button"
                           className="font-medium text-[#4F46E5] hover:text-[#4338CA]"
-                          onClick={() => setReferenceImageUrl('')}
-                          disabled={referenceUploading || generating}
+                          onClick={() => setReferenceImageFile(null)}
+                          disabled={generating}
                         >
                           Clear
                         </button>
@@ -407,9 +397,8 @@ export function DashboardPage() {
                 disabled={
                   !selectedBrandId ||
                   generating ||
-                  referenceUploading ||
                   !sanitizeImagePrompt(imagePrompt) ||
-                  (mediaMode === 'ai_enhance' && !referenceImageUrl)
+                  (mediaMode === 'ai_enhance' && !referenceImageFile)
                 }
                 onClick={async () => {
                   setError(null);
@@ -421,21 +410,58 @@ export function DashboardPage() {
                   try {
                     const sanitizedPrompt = sanitizeImagePrompt(imagePrompt);
 
-                    // 1) Generate/transform image with AI (preview-only mode).
-                    const imageGeneratePayload: { brandId: string; prompt: string; referenceImageUrl?: string } = {
-                      brandId: selectedBrandId,
-                      prompt: sanitizedPrompt,
-                      ...(mediaMode === 'ai_enhance' ? { referenceImageUrl } : {}),
-                    };
+                    // Upload+enhance: send the reference image to the backend as part of /api/feed/generate.
+                    if (mediaMode === 'ai_enhance') {
+                      if (!referenceImageFile) {
+                        setImageError('Upload is required for this mode.');
+                        return;
+                      }
+
+                      const captionContext = captionPrompt.trim() || sanitizedPrompt;
+
+                      const rawBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+                      if (!rawBase) throw new Error('VITE_API_BASE_URL is not set');
+                      const base = rawBase.replace(/\/+$/, '');
+                      const url = `${base}/api/feed/generate`;
+
+                      const { data } = await supabase.auth.getSession();
+                      const accessToken = data.session?.access_token;
+                      if (!accessToken) throw new Error('You are not authenticated. Please sign in again and retry.');
+
+                      const form = new FormData();
+                      form.set('brandId', selectedBrandId);
+                      form.set('prompt', captionContext);
+                      form.set('imagePrompt', sanitizedPrompt);
+                      form.set('referenceImage', referenceImageFile);
+
+                      const resp = await fetch(url, {
+                        method: 'POST',
+                        headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+                        body: form,
+                      });
+
+                      const post = (await resp.json().catch(() => null)) as FeedPost | null;
+                      if (!resp.ok || !post) {
+                        const msg = (post as any)?.message || `Request failed: ${resp.status}`;
+                        setImageError(msg);
+                        return;
+                      }
+
+                      setError(null);
+                      setImageError(null);
+                      setDraft(post);
+                      setGeneratedImageUrl(post.image_url ?? '');
+                      setPreviewImageUrl(post.image_url ?? null);
+                      setPreviewCaption(post.caption ?? null);
+                      return;
+                    }
+
+                    // Prompt-only: preview-first image generation via /api/feed/image/generate, then create the draft via /api/feed/generate.
                     const imgResp = await apiJsonWithStatus<{ imageUrl: string; revisedPrompt: string | null; imageMode: string }>(
                       '/api/feed/image/generate',
                       {
                         method: 'POST',
-                        body: JSON.stringify({
-                          brandId: imageGeneratePayload.brandId,
-                          prompt: imageGeneratePayload.prompt,
-                          ...(mediaMode === 'ai_enhance' ? { referenceImageUrl: imageGeneratePayload.referenceImageUrl } : {}),
-                        }),
+                        body: JSON.stringify({ brandId: selectedBrandId, prompt: sanitizedPrompt }),
                       }
                     );
 
@@ -463,7 +489,6 @@ export function DashboardPage() {
                     setPreviewImageUrl(imageUrl);
                     if (revised && revised.trim()) setImagePrompt(revised.trim());
 
-                    // 2) Generate the post using the AI-generated image (this creates/saves the draft internally).
                     const captionContext = captionPrompt.trim() || (revised?.trim() || sanitizedPrompt);
                     const post = await apiFetch<FeedPost>('/api/feed/generate', {
                       method: 'POST',
@@ -474,6 +499,8 @@ export function DashboardPage() {
                         prompt: captionContext,
                       }),
                     });
+                    setError(null);
+                    setImageError(null);
                     setDraft(post);
                     setPreviewCaption(post.caption ?? null);
                   } catch (e) {
