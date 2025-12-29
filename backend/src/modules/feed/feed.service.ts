@@ -1,5 +1,6 @@
 import { getBrandById } from '../brands/brand.repository';
 import { createDraftFeedPost, getFeedPostById, type FeedPost } from './feed.repository';
+import { uploadImageIfNeeded } from './uploadImageIfNeeded';
 
 export type GenerateFeedDraftPayload = {
   brandId: string;
@@ -62,8 +63,6 @@ async function openAIImageGeneration(args: {
       prompt: args.prompt,
       size: args.size,
       n: 1,
-      // Prefer URL if available; some models may return base64 instead.
-      response_format: 'url',
     }),
   });
 
@@ -79,8 +78,12 @@ async function openAIImageGeneration(args: {
   const revisedPrompt = first?.revised_prompt ?? null;
 
   if (url) return { imageUrl: url, revisedPrompt };
-  if (b64) return { imageUrl: `data:image/png;base64,${b64}`, revisedPrompt };
-  throw new Error('OpenAI image generation returned no image');
+  if (b64) {
+    // Many OpenAI image models return base64; upload to our existing public storage and return a URL.
+    const publicUrl = await uploadImageIfNeeded(`data:image/png;base64,${b64}`);
+    return { imageUrl: publicUrl, revisedPrompt };
+  }
+  throw new Error('OpenAI image generation returned no url or b64_json');
 }
 
 async function openAIImageEdit(args: {
@@ -103,7 +106,6 @@ async function openAIImageEdit(args: {
   // Some OpenAI image edit endpoints expect `image` as a file upload.
   form.set('image', new Blob([bytes], { type: contentType }), 'reference.png');
   form.set('n', '1');
-  form.set('response_format', 'url');
 
   const resp = await fetch('https://api.openai.com/v1/images/edits', {
     method: 'POST',
@@ -125,8 +127,11 @@ async function openAIImageEdit(args: {
   const revisedPrompt = first?.revised_prompt ?? null;
 
   if (url) return { imageUrl: url, revisedPrompt };
-  if (b64) return { imageUrl: `data:image/png;base64,${b64}`, revisedPrompt };
-  throw new Error('OpenAI image edit returned no image');
+  if (b64) {
+    const publicUrl = await uploadImageIfNeeded(`data:image/png;base64,${b64}`);
+    return { imageUrl: publicUrl, revisedPrompt };
+  }
+  throw new Error('OpenAI image edit returned no url or b64_json');
 }
 
 function getSupabaseConfig() {
@@ -177,10 +182,35 @@ async function generateCaptionWithOpenAI(input: {
   }
   const model = process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini';
 
-  const system = `You write short, high-quality Instagram captions. Keep it concise, natural, and on-brand. Return ONLY the caption text.`;
+  function toBrandHashtag(name: string): string {
+    // Convert brand name to a hashtag-friendly token (letters/numbers only, no spaces).
+    // Example: "Brand 23" -> "#Brand23"
+    const cleaned = name.replace(/[^a-zA-Z0-9]+/g, ' ').trim();
+    const token = cleaned.split(/\s+/).join('');
+    return `#${token || 'Brand'}`;
+  }
+
+  const brandHashtag = input.brandName ? toBrandHashtag(input.brandName) : null;
+
+  const system = `You are a social media copywriter.
+Write a short, engaging Instagram caption followed by 5–10 relevant hashtags.
+
+Output format (exactly):
+1) Caption sentence(s)
+2) A blank line
+3) A single line of space-separated hashtags (no commas)
+
+Hashtag rules:
+- Total hashtags: 5–10
+- Include topical/content hashtags derived from the prompt and context
+- Include a few generic Instagram-friendly hashtags where appropriate
+- Include exactly ONE brand hashtag (provided below if available)
+
+Return ONLY the combined caption+hashtags text in this format.`;
   const user = [
     input.brandName ? `Brand name: ${input.brandName}` : null,
     input.brandCategory ? `Category: ${input.brandCategory}` : null,
+    brandHashtag ? `Brand hashtag (include exactly once): ${brandHashtag}` : null,
     input.voiceGuidelines ? `Voice guidelines: ${input.voiceGuidelines}` : null,
     input.prompt ? `Additional context: ${input.prompt}` : null,
   ]
@@ -308,6 +338,36 @@ export async function generateFeedImage(
       : await openAIImageGeneration({ apiKey, prompt: prompt.trim(), size });
 
   // Estimate only (acceptable per requirements). Keep simple and deterministic.
+  const costCents = imageMode === 'image_edit' ? 15 : 10;
+
+  return {
+    imageUrl: result.imageUrl,
+    revisedPrompt: result.revisedPrompt,
+    imageMode,
+    costCents,
+  };
+}
+
+export async function generateFeedImagePreview(args: {
+  prompt: string;
+  referenceImageUrl?: string;
+}): Promise<GeneratedFeedImageResult> {
+  if (!isNonEmptyString(args.prompt)) throw new Error('prompt must be non-empty');
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set in environment variables');
+  }
+
+  const cleanedRef = isNonEmptyString(args.referenceImageUrl) ? args.referenceImageUrl.trim() : null;
+  const imageMode: GeneratedFeedImageResult['imageMode'] = cleanedRef ? 'image_edit' : 'prompt_only';
+  const size: '1024x1024' = '1024x1024';
+
+  const result =
+    imageMode === 'image_edit'
+      ? await openAIImageEdit({ apiKey, prompt: args.prompt.trim(), size, referenceImageUrl: cleanedRef! })
+      : await openAIImageGeneration({ apiKey, prompt: args.prompt.trim(), size });
+
   const costCents = imageMode === 'image_edit' ? 15 : 10;
 
   return {

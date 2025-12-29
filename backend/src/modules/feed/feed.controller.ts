@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types/auth';
-import { deleteFeedDraft as deleteFeedDraftService, FeedDraftNotFoundError, generateFeedDraft, generateFeedImage } from './feed.service';
+import { deleteFeedDraft as deleteFeedDraftService, FeedDraftNotFoundError, generateFeedDraft, generateFeedImage, generateFeedImagePreview } from './feed.service';
 import { manualPublishFeedPost, publishFeedPost } from './feed.publish.service';
 import { listFeedPostsByBrand, setFeedPostScheduledAt } from './feed.repository';
 
@@ -181,12 +181,27 @@ export async function feedImageGenerate(req: AuthenticatedRequest, res: Response
   };
 
   if (!brandId) return res.status(400).json({ message: 'brandId is required' });
-  if (!feedDraftId) return res.status(400).json({ message: 'feedDraftId is required' });
   if (!prompt || !prompt.trim()) return res.status(400).json({ message: 'prompt is required' });
 
+  // PREVIEW-ONLY MODE (no draft yet): exit before ANY Supabase logic runs.
+  if (!feedDraftId) {
+    try {
+      const result = await generateFeedImagePreview({ prompt, referenceImageUrl });
+      return res.json({
+        imageUrl: result.imageUrl,
+        revisedPrompt: result.revisedPrompt,
+        imageMode: result.imageMode,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return res.status(500).json({ message: msg || 'Internal server error' });
+    }
+  }
+
+  // DRAFT-BASED MODE (existing behavior): Supabase validation + limits + persistence.
   try {
     // Abuse/cost guards (best-effort; deterministic, no background jobs).
-    const usage = await supabaseGetFeedImageUsage(feedDraftId);
+    const usage = await supabaseGetFeedImageUsage(feedDraftId!);
     if (!usage) return res.status(404).json({ message: 'Not found' });
     if (usage.brand_id !== brandId) return res.status(400).json({ message: 'Feed draft does not belong to the provided brandId' });
 
@@ -205,7 +220,7 @@ export async function feedImageGenerate(req: AuthenticatedRequest, res: Response
       return res.status(429).json({ message: 'Daily image generation limit reached for this brand (max 20 per day).' });
     }
 
-    const result = await generateFeedImage(userId, brandId, feedDraftId, prompt, referenceImageUrl);
+    const result = await generateFeedImage(userId, brandId, feedDraftId!, prompt, referenceImageUrl);
 
     // Update counters for this draft (total + per-day) and persist output fields.
     const nextTotal = totalSoFar + 1;
@@ -214,7 +229,7 @@ export async function feedImageGenerate(req: AuthenticatedRequest, res: Response
     const nextDayCount = sameDay ? dayCountSoFar + 1 : 1;
 
     // Persist to the existing draft row. Column naming is expected to be snake_case in Postgres.
-    await supabasePatchFeedPostById(feedDraftId, {
+    await supabasePatchFeedPostById(feedDraftId!, {
       image_url: result.imageUrl,
       image_prompt: result.revisedPrompt ?? prompt,
       image_mode: result.imageMode,
