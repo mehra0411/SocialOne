@@ -246,4 +246,4 @@ That file defines:
 - Cursor‑friendly development
 
 This README is the **single source of truth for product scope and architecture**.
-
+http://localhost:5173/dashboard
