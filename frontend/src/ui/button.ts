@@ -2,7 +2,7 @@ type Variant = 'primary' | 'secondary';
 type Size = 'sm' | 'md';
 
 const base =
-  'inline-flex items-center justify-center rounded-xl font-medium transition-colors disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2';
+  'inline-flex items-center justify-center rounded-xl font-medium transition-colors disabled:opacity-60 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2 flex-wrap cursor-pointer';
 
 const sizes: Record<Size, string> = {
   sm: 'px-3 py-1.5 text-xs',
@@ -19,5 +19,3 @@ export function buttonClassName(opts?: { variant?: Variant; size?: Size; classNa
   const size = opts?.size ?? 'md';
   return [base, sizes[size], variants[variant], opts?.className].filter(Boolean).join(' ');
 }
-
-

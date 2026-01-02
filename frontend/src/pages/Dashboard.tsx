@@ -211,30 +211,46 @@ export function DashboardPage() {
   }, [reelId, selectedBrandId]);
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold text-zinc-900">Welcome to SocialOne</h1>
-        <p className="text-sm text-zinc-600">Create on-brand content faster — with or without AI</p>
-      </div>
-
-      <section className="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold text-zinc-900">Feed</h2>
-            <p className="text-sm text-zinc-600">Select a brand, generate a caption draft, then publish.</p>
+    <div className="space-y-6 font-sans from-gray-50 to-white min-h-screen">
+      {/* Hero Header Section */}
+      <div className="relative overflow-hidden px-0 py-2 sm:px-6 lg:px-0 mb-3">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
+        <div className="relative mx-auto max-w-7xl">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="space-y-2">
+              <h1 className="text-3xl md:text-3xl font-bold text-primary text-[#4F46E5]">Welcome to SocialOne</h1>
+              <p className="text-md text-primary font-medium">Create on-brand content faster — with or without AI</p>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Feed Section */}
+      <section className="group relative overflow-hidden rounded-3xl bg-white/90 backdrop-blur-xl shadow-xl ring-1 ring-black/5 transition-all duration-300 hover:shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+        <div className="relative p-6 sm:p-8">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Feed</h2>
+              <p className="text-sm text-gray-500">Select a brand, generate a caption draft, then publish.</p>
+            </div>
+          </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="grid gap-3">
             <div className="grid gap-1">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-zinc-900">Brand</label>
-                {brandsLoading ? <span className="text-xs text-zinc-500">Loading…</span> : null}
+                <label className="text-sm font-semibold text-gray-900">Brand</label>
+                {brandsLoading ? <span className="text-xs text-gray-500">Loading…</span> : null}
               </div>
 
               <select
-                className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900"
+                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
                 value={selectedBrandId}
                 onChange={(e) => {
                   const id = e.target.value;
@@ -253,27 +269,26 @@ export function DashboardPage() {
                 ))}
               </select>
               {brandsError ? (
-                <div className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">{brandsError}</div>
+                <div className="mt-2 rounded-xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-3 text-sm font-medium text-white shadow-lg">{brandsError}</div>
               ) : null}
               {!brandsLoading && brands.length === 0 ? (
-                <div className="mt-2 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
-                  <div className="font-medium text-zinc-900">No brands yet</div>
+                <div className="mt-2 rounded-xl bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 border-2 border-indigo-200">
+                  <div className="font-semibold text-indigo-900 mb-2">No brands yet</div>
                   <div className="mt-2 flex flex-col gap-2">
-                    <Link to="/brands" className={buttonClassName({ variant: 'primary' })}>
+                    <Link to="/brands" className={buttonClassName({ variant: 'primary' }) + ' shadow-md hover:shadow-lg transition-shadow'}>
                       Create Your First Brand
                     </Link>
-                    <div className="text-xs text-zinc-600">
+                    <div className="text-xs text-indigo-800">
                       Brands help us understand your voice and audience before creating content.
                     </div>
                   </div>
                 </div>
               ) : null}
             </div>
-
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Media</label>
-              <div className="mt-1 grid gap-2 rounded-2xl border border-zinc-200 bg-white p-4">
-                <label className="flex items-center gap-2 text-sm text-zinc-800">
+              <label className="text-sm font-semibold text-gray-900">Media</label>
+              <div className="mt-1 grid gap-2 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 shadow-sm">
+                <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer hover:text-indigo-600 transition-colors">
                   <input
                     type="radio"
                     name="mediaMode"
@@ -282,12 +297,13 @@ export function DashboardPage() {
                     onChange={() => {
                       setImageError(null);
                       setMediaMode('ai_generate');
-                      setReferenceImageUrl('');
+                      setPreviewImageUrl('');
                     }}
+                    className="text-indigo-600 focus:ring-indigo-500"
                   />
                   Generate image with AI
                 </label>
-                <label className="flex items-center gap-2 text-sm text-zinc-800">
+                <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer hover:text-indigo-600 transition-colors">
                   <input
                     type="radio"
                     name="mediaMode"
@@ -298,17 +314,18 @@ export function DashboardPage() {
                       setMediaMode('ai_enhance');
                       setReferenceImageFile(null);
                     }}
+                    className="text-indigo-600 focus:ring-indigo-500"
                   />
                   Upload image and enhance with AI
                 </label>
 
                 {mediaMode === 'ai_enhance' ? (
                   <div className="mt-2 grid gap-1">
-                    <label className="text-sm font-medium text-zinc-900">Upload image</label>
+                    <label className="text-sm font-semibold text-gray-900">Upload image</label>
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      className="block w-full text-sm"
+                      className="block w-full text-sm rounded-xl bg-gradient-to-r from-indigo-100 to-purple-100 border border-indigo-200 cursor-pointer px-3 py-2 hover:from-indigo-200 hover:to-purple-200 transition-colors file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"
                       disabled={generating}
                       onChange={async (e) => {
                         const file = e.target.files?.[0] ?? null;
@@ -334,11 +351,11 @@ export function DashboardPage() {
                       }}
                     />
                     {referenceImageFile ? (
-                      <div className="flex items-center justify-between gap-2 text-xs text-zinc-600">
-                        <span className="truncate">Reference image selected</span>
+                      <div className="flex items-center justify-between gap-2 text-xs text-gray-600 bg-green-50 rounded-lg p-2 border border-green-200">
+                        <span className="truncate font-medium text-green-800">✓ Reference image selected</span>
                         <button
                           type="button"
-                          className="font-medium text-[#4F46E5] hover:text-[#4338CA]"
+                          className="font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
                           onClick={() => setReferenceImageFile(null)}
                           disabled={generating}
                         >
@@ -346,15 +363,15 @@ export function DashboardPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="text-xs text-zinc-500">Upload is required for this mode.</div>
+                      <div className="text-xs text-gray-500">Upload is required for this mode.</div>
                     )}
                   </div>
                 ) : null}
 
                 <div className="mt-2 grid gap-1">
-                  <label className="text-sm font-medium text-zinc-900">Image Prompt</label>
+                  <label className="text-sm font-semibold text-gray-900">Image Prompt</label>
                   <textarea
-                    className="min-h-24 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
+                    className="min-h-24 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
                     placeholder="Describe the image you want…"
                     value={imagePrompt}
                     onChange={(e) => {
@@ -362,14 +379,13 @@ export function DashboardPage() {
                       setImagePrompt(e.target.value);
                     }}
                   />
-                  <div className="text-xs text-zinc-500">Required for both modes.</div>
+                  <div className="text-xs text-gray-500">Required for both modes.</div>
                 </div>
 
-                {imageError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{imageError}</div> : null}
+                {imageError ? <div className="rounded-xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-3 text-sm font-medium text-white shadow-lg">{imageError}</div> : null}
               </div>
             </div>
-
-            <div className="grid gap-1">
+            {/*<div className="grid gap-1">
               <label className="text-sm font-medium text-zinc-900">Caption Prompt (optional but recommended)</label>
               <textarea
                 className="min-h-24 rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-900"
@@ -377,23 +393,22 @@ export function DashboardPage() {
                 value={captionPrompt}
                 onChange={(e) => setCaptionPrompt(e.target.value)}
               />
-            </div>
-
-            {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+            </div>*/}
+            {error ? <div className="rounded-xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-3 text-sm font-medium text-white shadow-lg">{error}</div> : null}
 
             {igHint ? (
-              <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+              <div className="rounded-xl bg-gradient-to-r from-violet-100 to-purple-100 p-3 text-sm text-violet-900 border border-violet-200">
                 {igHint}{' '}
-                <Link to="/brand/platforms" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+                <Link to="/brand/platforms" className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
                   Connect Instagram
                 </Link>
                 .
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row flex-wrap">
               <button
-                className={buttonClassName({ variant: 'primary' })}
+                className={buttonClassName({ variant: 'primary' }) + ' shadow-lg hover:shadow-xl transition-all bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'}
                 disabled={
                   !selectedBrandId ||
                   generating ||
@@ -514,7 +529,7 @@ export function DashboardPage() {
               </button>
 
               {hasBrands ? (
-                <Link to="/drafts" className={buttonClassName({ variant: 'secondary' })}>
+                <Link to="/drafts" className={buttonClassName({ variant: 'secondary' }) + ' shadow-md hover:shadow-lg transition-shadow'}>
                   View Drafts
                 </Link>
               ) : null}
@@ -522,7 +537,7 @@ export function DashboardPage() {
               {hasBrands ? (
                 <button
                   type="button"
-                  className={buttonClassName({ variant: 'secondary' })}
+                  className={buttonClassName({ variant: 'secondary' }) + ' shadow-md opacity-60 cursor-not-allowed'}
                   disabled
                   aria-disabled="true"
                   title="Coming soon"
@@ -532,7 +547,7 @@ export function DashboardPage() {
               ) : null}
 
               <button
-                className={buttonClassName({ variant: 'secondary' })}
+                className={buttonClassName({ variant: 'secondary' }) + ' shadow-md hover:shadow-lg transition-shadow bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0'}
                 disabled={!draft || draft.status !== 'draft' || publishing || igLoading || igConnected !== true}
                 onClick={async () => {
                   if (!draft) return;
@@ -564,45 +579,73 @@ export function DashboardPage() {
             </div>
 
             {publishSuccess ? (
-              <div className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{publishSuccess}</div>
+              <div className="rounded-xl bg-gradient-to-r from-green-500/90 to-emerald-600/90 backdrop-blur-sm p-3 text-sm font-medium text-white shadow-lg">
+                <div className="flex items-center gap-2">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {publishSuccess}
+                </div>
+              </div>
             ) : null}
           </div>
-
           <div className="grid gap-3">
-            <div className="rounded-2xl border border-zinc-200 p-4">
+            <div className="max-h-[500px] overflow-y-auto rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4 shadow-lg">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900">Draft preview</h3>
-                  <span className="text-xs text-zinc-500">Preview</span>
+                <h3 className="text-sm font-semibold text-gray-900">Draft preview</h3>
+                  <span className="text-xs text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl px-3 py-1.5 shadow-md font-semibold">Preview</span>
               </div>
 
               <div className="mt-3 grid gap-3">
-                <div className="text-xs text-zinc-500">
-                  <span className="font-medium text-zinc-700">Brand:</span>{' '}
-                  {selectedBrand?.name ?? 'Unknown'}
+                <div className="text-xs text-gray-600 bg-indigo-50 rounded-lg p-2 border border-indigo-100">
+                  <span className="font-semibold text-indigo-900">Brand:</span>{' '}
+                  <span className="text-indigo-800">{selectedBrand?.name ?? 'Unknown'}</span>
                 </div>
 
                 {previewImageUrl ? (
-                  <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                  <div className="overflow-hidden rounded-xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 shadow-md">
                     <img
                       src={previewImageUrl}
                       alt="Preview"
-                      className="h-56 w-full object-cover"
+                      className="h-70 w-full object-fill"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display = 'none';
                       }}
                     />
-                    <div className="px-3 py-2 text-xs text-zinc-600">Image preview</div>
+                    <div className="px-3 py-2 text-xs text-indigo-700 font-medium bg-indigo-100">Image preview</div>
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
-                    No image yet. Choose a media mode and click <span className="font-medium text-zinc-900">Generate Post</span>.
+                  <div className="rounded-xl bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 text-sm text-indigo-800 border-2 border-indigo-200">
+                    No image yet. Choose a media mode and click <span className="font-semibold text-indigo-900">Generate Post</span>.
                   </div>
                 )}
 
-                {previewCaption ? (
-                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-900 whitespace-pre-wrap">{previewCaption}</div>
-                ) : (
-                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+                {previewCaption ? (() => {
+                  // Split caption and hashtags
+                  const lines = previewCaption.split('\n');
+                  // Find first blank line
+                  const blankIdx = lines.findIndex(line => line.trim() === '');
+                  let caption, hashtags;
+                  if (blankIdx !== -1) {
+                    caption = lines.slice(0, blankIdx).join(' ').trim();
+                    hashtags = lines.slice(blankIdx + 1).join(' ').trim();
+                  } else {
+                    // Fallback: treat last line as hashtags
+                    caption = lines.slice(0, -1).join(' ').trim();
+                    hashtags = lines[lines.length - 1].trim();
+                  }
+                  return (
+                    <>
+                      <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 p-3 text-sm text-indigo-900 whitespace-pre-wrap mb-2 border border-indigo-200 shadow-sm">
+                        <span className="font-bold mr-2 text-indigo-700">Caption:</span>{caption}
+                      </div>
+                      <div className="rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 p-3 text-sm text-blue-900 whitespace-pre-wrap border border-blue-200 shadow-sm">
+                        <span className="font-bold mr-2 text-blue-700">Hashtags:</span>{hashtags}
+                      </div>
+                    </>
+                  );
+                })() : (
+                  <div className="rounded-xl bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-3 text-sm text-indigo-800 border-2 border-indigo-200">
                     Caption will appear here after generation.
                   </div>
                 )}
@@ -610,20 +653,31 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
+        </div>
       </section>
 
-      <section className="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold text-zinc-900">Reels</h2>
-          <p className="text-sm text-zinc-600">Upload an image, generate a reel, poll status, then publish.</p>
-        </div>
+      {/* Reels Section */}
+      <section className="group relative overflow-hidden rounded-3xl bg-white/90 backdrop-blur-xl shadow-xl ring-1 ring-black/5 transition-all duration-300 hover:shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-purple-500/5 to-pink-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+        <div className="relative p-6 sm:p-8">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Reels</h2>
+              <p className="text-sm text-gray-500">Upload an image, generate a reel, poll status, then publish.</p>
+            </div>
+          </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="grid gap-3">
             <div className="grid gap-1">
-              <label className="text-sm font-medium text-zinc-900">Input image</label>
+              <label className="text-sm font-semibold text-gray-900">Input image</label>
               <input
-                className="block w-full text-sm"
+                className="block w-full text-sm rounded-xl bg-gradient-to-r from-violet-100 to-purple-100 border border-violet-200 cursor-pointer px-3 py-2 hover:from-violet-200 hover:to-purple-200 transition-colors file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-600 file:text-white hover:file:bg-violet-700"
                 type="file"
                 accept="image/*"
                 onChange={(e) => {
@@ -633,14 +687,14 @@ export function DashboardPage() {
                   setReelUploadUrl('');
                 }}
               />
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-gray-500">
                 This uploads to Supabase Storage and uses the public URL as `input_image_url`.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row flex-wrap">
               <button
-                className={buttonClassName({ variant: 'secondary' })}
+                className={buttonClassName({ variant: 'secondary' }) + ' shadow-md hover:shadow-lg transition-shadow'}
                 disabled={!reelFile || reelUploading}
                 onClick={async () => {
                   if (!reelFile) return;
@@ -660,7 +714,7 @@ export function DashboardPage() {
               </button>
 
               <button
-                className={buttonClassName({ variant: 'primary' })}
+                className={buttonClassName({ variant: 'primary' }) + ' shadow-lg hover:shadow-xl transition-all bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'}
                 disabled={!selectedBrandId || !reelUploadUrl || reelGenerating}
                 onClick={async () => {
                   setReelError(null);
@@ -688,27 +742,38 @@ export function DashboardPage() {
               </button>
             </div>
 
-            {reelError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{reelError}</div> : null}
+            {reelError ? <div className="rounded-xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-3 text-sm font-medium text-white shadow-lg">{reelError}</div> : null}
 
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
-              <div className="grid gap-1">
-                <div>
-                  <span className="font-medium">brandId:</span> {selectedBrandId || '(none)'}
+            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-4 text-sm text-violet-900 shadow-sm">
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-violet-800">brandId:</span>
+                  <span className="text-violet-700">{selectedBrandId || '(none)'}</span>
                 </div>
-                <div>
-                  <span className="font-medium">input_image_url:</span> {reelUploadUrl || '(upload first)'}
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-violet-800">input_image_url:</span>
+                  <span className="text-violet-700 text-xs truncate max-w-[200px]">{reelUploadUrl || '(upload first)'}</span>
                 </div>
-                <div>
-                  <span className="font-medium">reelId:</span> {reelId || '(not created yet)'}
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-violet-800">reelId:</span>
+                  <span className="text-violet-700">{reelId || '(not created yet)'}</span>
                 </div>
-                <div>
-                  <span className="font-medium">status:</span> {reel?.status ?? '(polling after generate)'}
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-violet-800">status:</span>
+                  <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${
+                    reel?.status === 'ready' ? 'bg-green-500 text-white' :
+                    reel?.status === 'generating' ? 'bg-amber-500 text-white' :
+                    reel?.status === 'published' ? 'bg-blue-500 text-white' :
+                    'bg-gray-400 text-white'
+                  }`}>
+                    {reel?.status ?? '(polling after generate)'}
+                  </span>
                 </div>
               </div>
             </div>
 
             <button
-              className={buttonClassName({ variant: 'secondary' })}
+              className={buttonClassName({ variant: 'secondary' }) + ' shadow-md hover:shadow-lg transition-shadow bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0'}
               disabled={!reelId || reel?.status !== 'ready' || reelPublishing || igLoading || igConnected !== true}
               onClick={async () => {
                 if (!reelId) return;
@@ -732,41 +797,47 @@ export function DashboardPage() {
           </div>
 
           <div className="grid gap-3">
-            <div className="rounded-2xl border border-zinc-200 p-4">
+            <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4 shadow-lg">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900">Reel preview</h3>
-                <span className="text-xs text-zinc-500">{reel ? `status: ${reel.status}` : 'no reel yet'}</span>
+                <h3 className="text-sm font-semibold text-gray-900">Reel preview</h3>
+                <span className={`text-xs text-white rounded-xl px-3 py-1.5 shadow-md font-semibold ${
+                  reel?.status === 'ready' ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
+                  reel?.status === 'generating' ? 'bg-gradient-to-r from-amber-500 to-orange-600' :
+                  reel?.status === 'published' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' :
+                  'bg-gradient-to-r from-gray-400 to-gray-500'
+                }`}>
+                  {reel ? `status: ${reel.status}` : 'no reel yet'}
+                </span>
               </div>
 
               <div className="mt-3 grid gap-3">
                 {reelUploadUrl ? (
-                  <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                  <div className="overflow-hidden rounded-xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 shadow-md">
                     <img src={reelUploadUrl} alt="Input" className="h-56 w-full object-cover" />
-                    <div className="px-3 py-2 text-xs text-zinc-600">Input image</div>
+                    <div className="px-3 py-2 text-xs text-violet-700 font-medium bg-violet-100">Input image</div>
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
+                  <div className="rounded-xl bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 p-3 text-sm text-violet-800 border-2 border-violet-200">
                     Upload an image to preview it here.
                   </div>
                 )}
 
                 {reel?.video_url ? (
-                  <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                  <div className="overflow-hidden rounded-xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 shadow-md">
                     <video src={reel.video_url} className="h-56 w-full object-cover" controls />
-                    <div className="px-3 py-2 text-xs text-zinc-600">Generated video</div>
+                    <div className="px-3 py-2 text-xs text-violet-700 font-medium bg-violet-100">Generated video</div>
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-600">
-                    Generated video will appear once status becomes <span className="font-medium">ready</span>.
+                  <div className="rounded-xl bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 p-3 text-sm text-violet-800 border-2 border-violet-200">
+                    Generated video will appear once status becomes <span className="font-semibold text-violet-900">ready</span>.
                   </div>
                 )}
               </div>
             </div>
           </div>
         </div>
+        </div>
       </section>
     </div>
   );
 }
-
-

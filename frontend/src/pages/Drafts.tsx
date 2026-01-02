@@ -365,59 +365,81 @@ export function DraftsPage() {
   const hasAny = rows.length > 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold text-zinc-900">My Drafts</h1>
-          <p className="text-sm text-zinc-600">
-            Schedule posts, view status, and manually override publishing (admin/operator usage).
-          </p>
+    <div className="space-y-6 font-sans from-gray-50 to-white min-h-screen">
+      {/* Hero Header Section */}
+      <div className="relative overflow-hidden px-0 py-2 sm:px-6 lg:px-0 mb-3">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
+        <div className="relative mx-auto max-w-7xl">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="space-y-2">
+              <h1 className="text-3xl md:text-3xl font-bold text-primary text-[#4F46E5]">My Drafts</h1>
+              <p className="text-md text-primary font-medium">
+                Schedule posts, view status, and manually override publishing (admin/operator usage).
+              </p>
+            </div>
+            <button className={buttonClassName({ variant: 'secondary' }) + ' shadow-md hover:shadow-lg transition-shadow'} onClick={() => void refresh()} disabled={loading}>
+              Refresh
+            </button>
+          </div>
         </div>
-
-        <button className={buttonClassName({ variant: 'secondary' })} onClick={() => void refresh()} disabled={loading}>
-          Refresh
-        </button>
       </div>
 
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-zinc-900">Brand</label>
-        <select
-          className="w-full max-w-md rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2"
-          value={brandId}
-          onChange={(e) => {
-            const id = e.target.value;
-            setBrandId(id);
-            const b = brands.find((x) => x.id === id);
-            if (b) setActiveBrand({ id: b.id, name: b.name });
-          }}
-        >
-          <option value="" disabled>
-            Select a brand…
-          </option>
-          {brands.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-        {brandsLoading ? <p className="text-xs text-zinc-500">Loading brands…</p> : null}
-        {brandsError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{brandsError}</div> : null}
-        {!brandsLoading && brands.length === 0 ? (
-          <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
-            <div className="font-medium text-zinc-900">No brands yet</div>
-            <div className="text-zinc-600">
-              Create one on{' '}
-              <Link to="/brands" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
-                My Brands
-              </Link>{' '}
-              to start scheduling posts.
+      {/* Brand Selection Card */}
+      <section className="group relative overflow-hidden rounded-3xl bg-white/90 backdrop-blur-xl shadow-xl ring-1 ring-black/5 transition-all duration-300 hover:shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+        <div className="relative p-6 sm:p-8">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Select Brand</h2>
+              <p className="text-sm text-gray-500">Choose a brand to view and manage drafts</p>
             </div>
           </div>
-        ) : null}
-      </div>
+          <div className="grid gap-2">
+            <label className="text-sm font-semibold text-gray-700">Brand</label>
+            <select
+              className="w-full max-w-md rounded-xl border-2 border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-900 outline-none transition-all duration-200 focus:border-indigo-500 focus:bg-indigo-50/50 focus:ring-4 focus:ring-indigo-500/20"
+              value={brandId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setBrandId(id);
+                const b = brands.find((x) => x.id === id);
+                if (b) setActiveBrand({ id: b.id, name: b.name });
+              }}
+            >
+              <option value="" disabled>
+                Select a brand…
+              </option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+            {brandsLoading ? <p className="text-xs text-zinc-500">Loading brands…</p> : null}
+            {brandsError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{brandsError}</div> : null}
+            {!brandsLoading && brands.length === 0 ? (
+              <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+                <div className="font-medium text-zinc-900">No brands yet</div>
+                <div className="text-zinc-600">
+                  Create one on{' '}
+                  <Link to="/brands" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
+                    My Brands
+                  </Link>{' '}
+                  to start scheduling posts.
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       {igHint ? (
-        <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
+        <div className="rounded-2xl bg-gradient-to-r from-violet-100 to-purple-100 p-4 text-sm text-violet-900 border border-violet-200 shadow-md">
           {igHint}{' '}
           <Link to="/brand/platforms" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
             Connect Instagram
@@ -427,7 +449,7 @@ export function DraftsPage() {
       ) : null}
 
       {publishBlockedAttempt ? (
-        <div className="flex items-start justify-between gap-3 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
+        <div className="flex items-start justify-between gap-3 rounded-2xl bg-gradient-to-r from-amber-100 to-orange-100 p-4 text-sm text-amber-900 border border-amber-200 shadow-md">
           <div>
             Instagram is not connected for this brand.{' '}
             <Link to="/brand/platforms" className="font-medium text-[#4F46E5] hover:text-[#4338CA]">
@@ -436,7 +458,7 @@ export function DraftsPage() {
           </div>
           <button
             type="button"
-            className="text-zinc-600 hover:text-zinc-900"
+            className="text-amber-900/70 hover:text-amber-900"
             onClick={() => setPublishBlockedAttempt(false)}
           >
             Dismiss
@@ -445,11 +467,11 @@ export function DraftsPage() {
       ) : null}
 
       {publishNowSuccess ? (
-        <div className="flex items-start justify-between gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+        <div className="flex items-start justify-between gap-3 rounded-2xl bg-gradient-to-r from-green-500/90 to-emerald-600/90 backdrop-blur-sm p-4 text-sm font-medium text-white shadow-lg">
           <div>{publishNowSuccess}</div>
           <button
             type="button"
-            className="text-emerald-900/70 hover:text-emerald-900"
+            className="text-white/90 hover:text-white"
             onClick={() => setPublishNowSuccess(null)}
           >
             Dismiss
@@ -457,71 +479,84 @@ export function DraftsPage() {
         </div>
       ) : null}
 
-      {error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
       {error ? (
-        <div className="flex">
-          <button
-            className={buttonClassName({ variant: 'secondary' })}
-            onClick={() => void refresh()}
-            disabled={loading}
-          >
-            Retry
-          </button>
+        <div className="rounded-2xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-4 text-sm font-medium text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              className={buttonClassName({ variant: 'secondary', size: 'sm' }) + ' bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 border-white/30 ml-2'}
+              onClick={() => void refresh()}
+              disabled={loading}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2">
-        <button
-          className={buttonClassName({ variant: tab === 'feed' ? 'primary' : 'secondary' })}
-          onClick={() => setTab('feed')}
-        >
-          Feed Posts
-        </button>
-        <button
-          className={buttonClassName({ variant: tab === 'reel' ? 'primary' : 'secondary' })}
-          onClick={() => setTab('reel')}
-        >
-          Reels
-        </button>
-      </div>
-
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900">
-              {tab === 'feed' ? 'Feed posts' : 'Reels'} for {brandName || 'Untitled brand'}
-            </h2>
-            <p className="text-sm text-zinc-600">Statuses: draft / scheduled / publishing / published / failed</p>
+      {/* Posts Table Section */}
+      <section className="group relative overflow-hidden rounded-3xl bg-white/90 backdrop-blur-xl shadow-xl ring-1 ring-black/5 transition-all duration-300 hover:shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 via-purple-500/5 to-pink-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+        <div className="relative p-6 sm:p-8">
+          <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">
+                  {tab === 'feed' ? 'Feed Posts' : 'Reels'} for {brandName || 'Untitled brand'}
+                </h2>
+                <p className="text-sm text-gray-500">Statuses: draft / scheduled / publishing / published / failed</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className={buttonClassName({ variant: tab === 'feed' ? 'primary' : 'secondary' }) + ' shadow-md hover:shadow-lg transition-shadow'}
+                onClick={() => setTab('feed')}
+              >
+                Feed Posts
+              </button>
+              <button
+                className={buttonClassName({ variant: tab === 'reel' ? 'primary' : 'secondary' }) + ' shadow-md hover:shadow-lg transition-shadow'}
+                onClick={() => setTab('reel')}
+              >
+                Reels
+              </button>
+              <span className="text-xs text-white bg-violet-600 rounded-xl px-3 py-1.5 font-semibold shadow-md">
+                {loading ? 'Loading…' : `${rows.length} items`}
+              </span>
+            </div>
           </div>
-          <div className="text-xs text-zinc-500">{loading ? 'Loading…' : `${rows.length} items`}</div>
-        </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-violet-200/50 bg-gradient-to-br from-white to-violet-50/30 shadow-lg">
           <table className="w-full min-w-[980px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                <th className="py-2 pr-4">ID</th>
-                <th className="py-2 pr-4">Platform</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Scheduled</th>
-                <th className="py-2 pr-4">Published</th>
-                <th className="py-2 pr-4">Retries</th>
-                <th className="py-2 pr-4">Created</th>
-                <th className="py-2 pr-4">Actions</th>
+              <tr className="bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-white">
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider first:rounded-tl-2xl">ID</th>
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider">Platform</th>
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider">Status</th>
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider">Scheduled</th>
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider">Published</th>
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider">Retries</th>
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider">Created</th>
+                <th className="py-4 px-4 text-xs font-bold uppercase tracking-wider last:rounded-tr-2xl">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-violet-100/50">
               {loading
                 ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={`sk-${i}`} className="border-b border-zinc-100">
-                      <td className="py-3 pr-4"><Skeleton className="h-4 w-52" /></td>
-                      <td className="py-3 pr-4"><Skeleton className="h-4 w-20" /></td>
-                      <td className="py-3 pr-4"><Skeleton className="h-6 w-24 rounded-full" /></td>
-                      <td className="py-3 pr-4"><Skeleton className="h-4 w-32" /></td>
-                      <td className="py-3 pr-4"><Skeleton className="h-4 w-32" /></td>
-                      <td className="py-3 pr-4"><Skeleton className="h-4 w-10" /></td>
-                      <td className="py-3 pr-4"><Skeleton className="h-4 w-32" /></td>
-                      <td className="py-3 pr-4">
+                    <tr key={`sk-${i}`} className="bg-white/50 hover:bg-violet-50/50 transition-colors">
+                      <td className="py-4 px-4"><Skeleton className="h-4 w-52" /></td>
+                      <td className="py-4 px-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="py-4 px-4"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                      <td className="py-4 px-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="py-4 px-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="py-4 px-4"><Skeleton className="h-4 w-10" /></td>
+                      <td className="py-4 px-4"><Skeleton className="h-4 w-32" /></td>
+                      <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
                           <Skeleton className="h-8 w-24 rounded-xl" />
                           <Skeleton className="h-8 w-28 rounded-xl" />
@@ -529,7 +564,7 @@ export function DraftsPage() {
                       </td>
                     </tr>
                   ))
-                : rows.map((r: any) => {
+                : rows.map((r: any, index: number) => {
                 const status = r.status as string;
                 const isPublishingOrPublished = status === 'publishing' || status === 'published';
                 const canSchedule = !isPublishingOrPublished;
@@ -554,35 +589,44 @@ export function DraftsPage() {
                     : null;
 
                 return (
-                  <tr key={r.id} className="border-b border-zinc-100">
-                    <td className="py-3 pr-4 font-mono text-xs text-zinc-700">{r.id}</td>
-                    <td className="py-3 pr-4 text-zinc-700">{platform}</td>
-                    <td className="py-3 pr-4">
-                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+                  <tr key={r.id} className={`bg-white/70 hover:bg-gradient-to-r hover:from-violet-50/80 hover:to-purple-50/80 transition-all duration-200 ${index % 2 === 0 ? 'bg-white/50' : 'bg-white/70'}`}>
+                    <td className="py-4 px-4 font-mono text-xs font-medium text-zinc-800">{r.id}</td>
+                    <td className="py-4 px-4">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-violet-100 to-purple-100 text-violet-700 font-medium text-xs border border-violet-200">
+                        <span
+                          aria-hidden="true"
+                          className="h-2 w-2 rounded-full bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#515BD4]"
+                        />
+                        {platformLabel}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className={[
+                        'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold shadow-md',
+                        status === 'published' ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' :
+                        status === 'publishing' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white' :
+                        status === 'scheduled' ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white' :
+                        status === 'failed' ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white' :
+                        status === 'generating' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' :
+                        status === 'ready' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white' :
+                        'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
+                      ].join(' ')}>
                         {formatStatusLabel(status)}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 text-xs text-zinc-600">{formatDate(r.scheduled_at ?? null)}</td>
-                    <td className="py-3 pr-4 text-xs text-zinc-600">{formatDate(r.published_at ?? null)}</td>
-                    <td className="py-3 pr-4 text-xs text-zinc-600">{r.retry_count ?? 0}</td>
-                    <td className="py-3 pr-4 text-xs text-zinc-600">{formatDate(r.created_at ?? null)}</td>
-                    <td className="py-3 pr-4">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
-                          <span className="truncate">
-                            <span className="font-medium text-zinc-700">Brand:</span> {brandName || 'Untitled brand'}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-                            <span
-                              aria-hidden="true"
-                              className="h-2.5 w-2.5 rounded-[3px] bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#515BD4]"
-                            />
-                            {platformLabel}
-                          </span>
-                        </div>
+                    <td className="py-4 px-4 text-xs font-medium text-zinc-700">{formatDate(r.scheduled_at ?? null)}</td>
+                    <td className="py-4 px-4 text-xs font-medium text-zinc-700">{formatDate(r.published_at ?? null)}</td>
+                    <td className="py-4 px-4">
+                      <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded-lg bg-zinc-100 text-zinc-700 font-semibold text-xs">
+                        {r.retry_count ?? 0}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-xs font-medium text-zinc-700">{formatDate(r.created_at ?? null)}</td>
+                    <td className="py-4 px-4">
+                      <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
                         <button
-                          className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+                          className={buttonClassName({ variant: 'secondary', size: 'sm' }) + ' shadow-sm hover:shadow-md transition-shadow whitespace-nowrap'}
                           disabled={actionsBusy}
                           onClick={() => {
                             setViewModal({ open: true, postType: tab, record: r as FeedPost | Reel });
@@ -591,7 +635,7 @@ export function DraftsPage() {
                           View
                         </button>
                         <button
-                          className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+                          className={buttonClassName({ variant: 'secondary', size: 'sm' }) + ' shadow-sm hover:shadow-md transition-shadow whitespace-nowrap'}
                           disabled={!canSchedule || actionsBusy}
                           onClick={() => {
                             setScheduleError(null);
@@ -607,7 +651,7 @@ export function DraftsPage() {
                           Schedule
                         </button>
                         <button
-                          className={buttonClassName({ variant: 'primary', size: 'sm', className: 'rounded-lg' })}
+                          className={buttonClassName({ variant: 'primary', size: 'sm', className: 'rounded-lg' }) + ' shadow-md hover:shadow-lg transition-shadow bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 whitespace-nowrap'}
                           disabled={!canPublishNow || isPublishingOrPublished || actionsBusy || publishDisabledReason === 'incomplete'}
                           onClick={() => {
                             setPublishNowError(null);
@@ -621,7 +665,7 @@ export function DraftsPage() {
                           {isRowPublishing ? 'Publishing…' : 'Publish now'}
                         </button>
                         <button
-                          className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+                          className={buttonClassName({ variant: 'secondary', size: 'sm' }) + ' shadow-sm hover:shadow-md transition-shadow whitespace-nowrap'}
                           disabled={
                             tab !== 'feed' ||
                             status !== 'draft' ||
@@ -654,12 +698,12 @@ export function DraftsPage() {
 
               {!loading && rows.length === 0 ? (
                 <tr>
-                  <td className="py-6 text-sm text-zinc-600" colSpan={8}>
-                    <div className="space-y-1">
-                      <div className="font-medium text-zinc-900">No posts yet</div>
-                      <div>No feed posts or reels found for this brand.</div>
-                      <div className="text-zinc-600">
-                        Next: create a draft from <span className="font-medium text-zinc-900">Dashboard</span>.
+                  <td className="py-12 px-4 text-center" colSpan={8}>
+                    <div className="space-y-2">
+                      <div className="text-lg font-bold text-zinc-900">No posts yet</div>
+                      <div className="text-sm text-zinc-600">No feed posts or reels found for this brand.</div>
+                      <div className="text-sm text-zinc-500">
+                        Next: create a draft from <span className="font-medium text-violet-600">Dashboard</span>.
                       </div>
                     </div>
                   </td>
@@ -670,19 +714,20 @@ export function DraftsPage() {
         </div>
 
         {!loading && hasAny && scheduledCount === 0 ? (
-          <div className="mt-4 rounded-xl bg-zinc-50 p-3 text-sm text-zinc-700">
-            <div className="font-medium text-zinc-900">No scheduled posts</div>
-            <div className="text-zinc-600">
-              Next: pick a post and use <span className="font-medium text-zinc-900">Schedule</span> to set a future publish time.
+          <div className="mt-4 rounded-2xl bg-gradient-to-r from-violet-100 to-purple-100 p-4 text-sm text-violet-900 border border-violet-200 shadow-md">
+            <div className="font-medium text-violet-900">No scheduled posts</div>
+            <div className="text-violet-800">
+              Next: pick a post and use <span className="font-medium text-violet-900">Schedule</span> to set a future publish time.
             </div>
           </div>
         ) : null}
+        </div>
       </section>
 
       {/* Delete draft modal (feed only) */}
       {deleteModal.open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+          <div className="w-full max-w-md rounded-3xl bg-white/95 backdrop-blur-xl p-6 shadow-2xl ring-1 ring-black/5">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <h3 className="text-base font-semibold text-zinc-900">Delete Draft</h3>
@@ -700,7 +745,7 @@ export function DraftsPage() {
             </div>
 
             {deleteError ? (
-              <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{deleteError}</div>
+              <div className="mt-4 rounded-2xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-4 text-sm font-medium text-white shadow-lg">{deleteError}</div>
             ) : null}
 
             <div className="mt-4 flex justify-end gap-2">
@@ -742,7 +787,7 @@ export function DraftsPage() {
       {/* Draft view modal (read-only) */}
       {viewModal.open && viewModal.record ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-lg">
+          <div className="w-full max-w-2xl rounded-3xl bg-white/95 backdrop-blur-xl p-6 shadow-2xl ring-1 ring-black/5">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <h3 className="text-base font-semibold text-zinc-900">Draft details</h3>
@@ -761,18 +806,18 @@ export function DraftsPage() {
             </div>
 
             <div className="mt-4 grid gap-4">
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
-                  <div className="text-xs font-medium text-zinc-600">Brand</div>
-                  <div className="mt-1">{brandName || 'Unknown brand'}</div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 p-3 text-sm text-indigo-900 border border-indigo-200 shadow-sm">
+                  <div className="text-xs font-semibold text-indigo-700">Brand</div>
+                  <div className="mt-1 font-medium">{brandName || 'Unknown brand'}</div>
                 </div>
-                <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
-                  <div className="text-xs font-medium text-zinc-600">Status</div>
-                  <div className="mt-1">{formatStatusLabel((viewModal.record as any).status)}</div>
+                <div className="rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 p-3 text-sm text-violet-900 border border-violet-200 shadow-sm">
+                  <div className="text-xs font-semibold text-violet-700">Status</div>
+                  <div className="mt-1 font-medium">{formatStatusLabel((viewModal.record as any).status)}</div>
                 </div>
-                <div className="rounded-xl bg-zinc-50 p-3 text-sm text-zinc-800">
-                  <div className="text-xs font-medium text-zinc-600">Created</div>
-                  <div className="mt-1">{formatDate((viewModal.record as any).created_at ?? null)}</div>
+                <div className="rounded-xl bg-gradient-to-br from-pink-50 to-rose-50 p-3 text-sm text-pink-900 border border-pink-200 shadow-sm">
+                  <div className="text-xs font-semibold text-pink-700">Created</div>
+                  <div className="mt-1 font-medium">{formatDate((viewModal.record as any).created_at ?? null)}</div>
                 </div>
               </div>
 
@@ -791,11 +836,11 @@ export function DraftsPage() {
               ) : null}
 
               {viewModal.postType === 'feed' ? (
-                <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+                <div className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-4 shadow-md">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-zinc-900">AI Image</div>
-                      <div className="mt-1 text-xs text-zinc-600">
+                      <div className="text-sm font-semibold text-violet-900">AI Image</div>
+                      <div className="mt-1 text-xs text-violet-700">
                         Generate an AI image for this feed draft. This is an explicit action (no auto-generate).
                       </div>
                     </div>
@@ -873,7 +918,7 @@ export function DraftsPage() {
                       )}
                     </div>
 
-                    {aiImageError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{aiImageError}</div> : null}
+                    {aiImageError ? <div className="rounded-2xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-4 text-sm font-medium text-white shadow-lg">{aiImageError}</div> : null}
 
                     <div className="flex flex-wrap items-center gap-2">
                       {!aiGeneratedImageUrl ? (
@@ -943,7 +988,7 @@ export function DraftsPage() {
                         <>
                           <button
                             type="button"
-                            className={buttonClassName({ variant: 'primary' })}
+                            className={buttonClassName({ variant: 'primary' }) + ' shadow-md hover:shadow-lg transition-shadow bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'}
                             disabled={!aiImagePrompt.trim() || aiGenerating || aiUploadingReference || aiRemoving}
                             onClick={async () => {
                               const record = viewModal.record as FeedPost;
@@ -1048,8 +1093,8 @@ export function DraftsPage() {
               ) : null}
 
               <div>
-                <div className="text-xs font-medium text-zinc-600">Caption</div>
-                <div className="mt-2 whitespace-pre-wrap rounded-2xl border border-zinc-200 bg-white p-4 text-sm text-zinc-900">
+                <div className="text-xs font-semibold text-violet-700 mb-2">Caption</div>
+                <div className="mt-2 whitespace-pre-wrap rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-4 text-sm text-violet-900 shadow-sm">
                   {(viewModal.record as any).caption?.trim?.() ? (viewModal.record as any).caption : '(empty caption)'}
                 </div>
               </div>
@@ -1071,7 +1116,7 @@ export function DraftsPage() {
       {/* Schedule modal */}
       {scheduleModal.open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+          <div className="w-full max-w-md rounded-3xl bg-white/95 backdrop-blur-xl p-6 shadow-2xl ring-1 ring-black/5">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-zinc-900">Schedule {scheduleModal.postType}</h3>
               <p className="text-sm text-zinc-600">Choose when this post should be published. You can override later.</p>
@@ -1088,7 +1133,7 @@ export function DraftsPage() {
               <p className="text-xs text-zinc-500">
                 Current: {formatDate(scheduleModal.currentScheduledAt)} (optional)
               </p>
-              {scheduleError ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{scheduleError}</div> : null}
+              {scheduleError ? <div className="rounded-2xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-4 text-sm font-medium text-white shadow-lg">{scheduleError}</div> : null}
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
@@ -1153,7 +1198,7 @@ export function DraftsPage() {
       {/* Publish now modal */}
       {publishNowModal.open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+          <div className="w-full max-w-md rounded-3xl bg-white/95 backdrop-blur-xl p-6 shadow-2xl ring-1 ring-black/5">
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-zinc-900">Confirm Publish</h3>
               <p className="text-sm text-zinc-600">
@@ -1162,11 +1207,11 @@ export function DraftsPage() {
             </div>
 
             {publishNowError ? (
-              <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              <div className="mt-4 rounded-2xl bg-gradient-to-r from-red-500/90 to-rose-600/90 backdrop-blur-sm p-4 text-sm font-medium text-white shadow-lg">
                 <div>{publishNowError}</div>
-                {publishNowMediaErrorDetail ? <div className="mt-1 text-xs text-red-700/90">{publishNowMediaErrorDetail}</div> : null}
+                {publishNowMediaErrorDetail ? <div className="mt-1 text-xs text-white/90">{publishNowMediaErrorDetail}</div> : null}
                 {publishNowTemporaryFailure ? (
-                  <div className="mt-2 text-xs text-red-700/90">Your draft is safe. Please try again.</div>
+                  <div className="mt-2 text-xs text-white/90">Your draft is safe. Please try again.</div>
                 ) : null}
               </div>
             ) : null}

@@ -14,172 +14,329 @@ import { AdminMetricsPage } from './pages/AdminMetrics';
 import { useActiveBrand } from './brands/activeBrand';
 import { BrandProfilePage } from './pages/BrandProfile';
 import { BrandPlatformsPage } from './pages/BrandPlatforms';
+import { useState } from 'react';
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const { activeBrandId, activeBrandName } = useActiveBrand();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navLinkClassName = (isActive: boolean) =>
+    [
+      'block rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+      isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+    ].join(' ');
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm font-semibold text-zinc-900">
-              SocialOne
-            </Link>
-            <nav className="flex items-center gap-3 text-sm text-zinc-600">
+    <div className="min-h-screen bg-violet-200">
+      <header className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-4 py-2 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl px-3 sm:px-4">
+          {/* Main header bar */}
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link to="/" className="text-sm sm:text-base font-semibold text-white">
+                SocialOne
+              </Link>
+              {/* Desktop Navigation */}
+              <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-sm">
+                {user ? (
+                  <>
+                    <NavLink
+                      to="/dashboard"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive
+                            ? 'bg-[#fff] text-[#4F46E5]'
+                            : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      Dashboard
+                    </NavLink>
+                    <NavLink
+                      to="/brands"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      My Brands
+                    </NavLink>
+                    <NavLink
+                      to="/brand/profile"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      Brand Profile
+                    </NavLink>
+                    <NavLink
+                      to="/brand/platforms"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      Platforms
+                    </NavLink>
+                    <NavLink
+                      to="/drafts"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      My Drafts
+                    </NavLink>
+                    <NavLink
+                      to="/analytics"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      Analytics
+                    </NavLink>
+                    {user.role === 'super_admin' ? (
+                      <NavLink
+                        to="/admin"
+                        className={({ isActive }) =>
+                          [
+                            'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                            isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          ].join(' ')
+                        }
+                      >
+                        Admin
+                      </NavLink>
+                    ) : null}
+                    {user.role === 'super_admin' ? (
+                      <NavLink
+                        to="/admin/metrics"
+                        className={({ isActive }) =>
+                          [
+                            'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                            isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          ].join(' ')
+                        }
+                      >
+                        Metrics
+                      </NavLink>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <NavLink
+                      to="/login"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      Login
+                    </NavLink>
+                    <NavLink
+                      to="/signup"
+                      className={({ isActive }) =>
+                        [
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                        ].join(' ')
+                      }
+                    >
+                      Signup
+                    </NavLink>
+                  </>
+                )}
+              </nav>
+            </div>
+
+            {/* Right side: User info and mobile menu button */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {user ? (
                 <>
-                  <NavLink
-                    to="/dashboard"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive
-                          ? 'bg-[#EEF2FF] text-[#4F46E5]'
-                          : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
-                  >
-                    Dashboard
-                  </NavLink>
-                  <NavLink
-                    to="/brands"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
-                  >
-                    My Brands
-                  </NavLink>
-                  <NavLink
-                    to="/brand/profile"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
-                  >
-                    Brand Profile
-                  </NavLink>
-                  <NavLink
-                    to="/brand/platforms"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
-                  >
-                    Platforms
-                  </NavLink>
-                  <NavLink
-                    to="/drafts"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
-                  >
-                    My Drafts
-                  </NavLink>
-                  <NavLink
-                    to="/analytics"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
-                  >
-                    Analytics
-                  </NavLink>
-                  {user.role === 'super_admin' ? (
-                    <NavLink
-                      to="/admin"
-                      className={({ isActive }) =>
-                        [
-                          'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                        ].join(' ')
-                      }
+                  {/* Desktop user info */}
+                  <div className="hidden md:flex items-center gap-1.5 sm:gap-2">
+                    {activeBrandId ? (
+                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700 whitespace-nowrap">
+                        <span className="hidden sm:inline">Brand: </span>
+                        {activeBrandName ?? 'Untitled brand'}
+                      </span>
+                    ) : null}
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+                      {user.role}
+                    </span>
+                    <button
+                      className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg' })}
+                      onClick={() => {
+                        void signOut();
+                      }}
                     >
-                      Admin
-                    </NavLink>
-                  ) : null}
-                  {user.role === 'super_admin' ? (
-                    <NavLink
-                      to="/admin/metrics"
-                      className={({ isActive }) =>
-                        [
-                          'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                        ].join(' ')
-                      }
-                    >
-                      Metrics
-                    </NavLink>
-                  ) : null}
+                      Logout
+                    </button>
+                  </div>
+                  {/* Mobile user info - simplified */}
+                  <div className="md:hidden flex items-center gap-1">
+                    {activeBrandId && (
+                      <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 truncate max-w-[80px]">
+                        {activeBrandName ?? 'Brand'}
+                      </span>
+                    )}
+                  </div>
                 </>
-              ) : (
-                <>
-                  <NavLink
-                    to="/login"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
+              ) : null}
+              
+              {/* Mobile menu button */}
+              {user && (
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="lg:hidden rounded-lg p-2 text-white hover:bg-violet-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-500"
+                  aria-label="Toggle menu"
+                >
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                   >
-                    Login
-                  </NavLink>
-                  <NavLink
-                    to="/signup"
-                    className={({ isActive }) =>
-                      [
-                        'rounded-lg px-2 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                        isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-zinc-600 hover:text-[#4F46E5]',
-                      ].join(' ')
-                    }
-                  >
-                    Signup
-                  </NavLink>
-                </>
+                    {mobileMenuOpen ? (
+                      <path d="M6 18L18 6M6 6l12 12" />
+                    ) : (
+                      <path d="M4 6h16M4 12h16M4 18h16" />
+                    )}
+                  </svg>
+                </button>
               )}
-            </nav>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {user ? (
-              <>
-                {activeBrandId ? (
-                  <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-                    Brand: {activeBrandName ?? 'Untitled brand'}
-                  </span>
-                ) : null}
-                <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-                  {user.role}
-                </span>
-                <button
-                  className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg' })}
-                  onClick={() => {
-                    void signOut();
-                  }}
+          {/* Mobile Navigation Menu */}
+          {user && mobileMenuOpen && (
+            <div className="lg:hidden border-t border-violet-400 pb-3 pt-3">
+              <nav className="flex flex-col gap-1">
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                  onClick={() => setMobileMenuOpen(false)}
                 >
-                  Logout
-                </button>
-              </>
-            ) : null}
-          </div>
+                  Dashboard
+                </NavLink>
+                <NavLink
+                  to="/brands"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  My Brands
+                </NavLink>
+                <NavLink
+                  to="/brand/profile"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Brand Profile
+                </NavLink>
+                <NavLink
+                  to="/brand/platforms"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Platforms
+                </NavLink>
+                <NavLink
+                  to="/drafts"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  My Drafts
+                </NavLink>
+                <NavLink
+                  to="/analytics"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Analytics
+                </NavLink>
+                {user.role === 'super_admin' ? (
+                  <NavLink
+                    to="/admin"
+                    className={({ isActive }) => navLinkClassName(isActive)}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Admin
+                  </NavLink>
+                ) : null}
+                {user.role === 'super_admin' ? (
+                  <NavLink
+                    to="/admin/metrics"
+                    className={({ isActive }) => navLinkClassName(isActive)}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Metrics
+                  </NavLink>
+                ) : null}
+                <div className="mt-2 pt-2 border-t border-violet-400 flex flex-col gap-2">
+                  {activeBrandId && (
+                    <div className="px-3 py-1 text-xs text-white/90">
+                      Brand: {activeBrandName ?? 'Untitled brand'}
+                    </div>
+                  )}
+                  <div className="px-3 py-1 text-xs text-white/90">
+                    Role: {user.role}
+                  </div>
+                  <button
+                    className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg mx-3' })}
+                    onClick={() => {
+                      void signOut();
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              </nav>
+            </div>
+          )}
+
+          {/* Mobile login/signup links */}
+          {!user && (
+            <div className="lg:hidden border-t border-violet-400 pb-3 pt-3">
+              <nav className="flex flex-col gap-1">
+                <NavLink
+                  to="/login"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                >
+                  Login
+                </NavLink>
+                <NavLink
+                  to="/signup"
+                  className={({ isActive }) => navLinkClassName(isActive)}
+                >
+                  Signup
+                </NavLink>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-3 sm:px-4 py-4 sm:py-6 lg:py-8 ">{children}</main>
     </div>
   );
 }
