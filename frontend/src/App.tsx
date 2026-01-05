@@ -30,12 +30,13 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-violet-200">
-      <header className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-4 py-2 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl px-3 sm:px-4">
+      <header className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-4 py-2 sm:px-6 lg:px-8 animate-gradient">
+        <div className="absolute inset-0 animate-shimmer opacity-10"></div>
+        <div className="mx-auto max-w-5xl px-3 sm:px-4 relative z-10">
           {/* Main header bar */}
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link to="/" className="text-sm sm:text-base font-semibold text-white">
+              <Link to="/" className="text-sm sm:text-base font-semibold text-white glow-text animate-slide-in-left hover:scale-105 transition-transform">
                 SocialOne
               </Link>
               {/* Desktop Navigation */}
@@ -46,10 +47,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/dashboard"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
                           isActive
-                            ? 'bg-[#fff] text-[#4F46E5]'
-                            : 'text-white hover:bg-violet-600 hover:text-white',
+                            ? 'bg-[#fff] text-[#4F46E5] glow-on-hover'
+                            : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -59,8 +60,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/brands"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -70,8 +71,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/brand/profile"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -81,8 +82,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/brand/platforms"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -92,8 +93,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/drafts"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -103,8 +104,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/analytics"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -115,8 +116,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                         to="/admin"
                         className={({ isActive }) =>
                           [
-                            'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                            isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                            'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                            isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                           ].join(' ')
                         }
                       >
@@ -128,8 +129,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                         to="/admin/metrics"
                         className={({ isActive }) =>
                           [
-                            'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                            isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                            'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                            isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                           ].join(' ')
                         }
                       >
@@ -143,8 +144,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/login"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -154,8 +155,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       to="/signup"
                       className={({ isActive }) =>
                         [
-                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
-                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5]' : 'text-white hover:bg-violet-600 hover:text-white',
+                          'rounded-lg px-2 xl:px-3 py-1 font-medium transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5] focus-visible:ring-offset-2',
+                          isActive ? 'bg-[#EEF2FF] text-[#4F46E5] glow-on-hover' : 'text-white hover:bg-violet-600 hover:text-white hover:scale-105',
                         ].join(' ')
                       }
                     >
@@ -182,12 +183,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
                       {user.role}
                     </span>
                     <button
-                      className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg' })}
+                      className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg glow-on-hover relative overflow-hidden' })}
                       onClick={() => {
                         void signOut();
                       }}
                     >
-                      Logout
+                      <span className="relative z-10">Logout</span>
                     </button>
                   </div>
                   {/* Mobile user info - simplified */}
@@ -302,13 +303,13 @@ function AppShell({ children }: { children: React.ReactNode }) {
                     Role: {user.role}
                   </div>
                   <button
-                    className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg mx-3' })}
+                    className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'rounded-lg mx-3 glow-on-hover relative overflow-hidden' })}
                     onClick={() => {
                       void signOut();
                       setMobileMenuOpen(false);
                     }}
                   >
-                    Logout
+                    <span className="relative z-10">Logout</span>
                   </button>
                 </div>
               </nav>
@@ -343,7 +344,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   return (
     <AppShell>
@@ -351,7 +352,7 @@ export default function App() {
         <Route
           path="/"
           element={
-            loading ? null : user ? <Navigate to="/dashboard" replace /> : <LandingPage />
+            loading ? null : <LandingPage />
           }
         />
         <Route path="/login" element={<LoginPage />} />
