@@ -7,6 +7,7 @@ import { AnalyticsPage } from './pages/Analytics';
 import { BrandsPage } from './pages/Brands';
 import { DashboardPage } from './pages/Dashboard';
 import { DraftsPage } from './pages/Drafts';
+import { LandingPage } from './pages/Landing';
 import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
 import { buttonClassName } from './ui/button';
@@ -349,7 +350,9 @@ export default function App() {
       <Routes>
         <Route
           path="/"
-          element={<Navigate to={loading ? '/login' : user ? '/dashboard' : '/login'} replace />}
+          element={
+            loading ? null : user ? <Navigate to="/dashboard" replace /> : <LandingPage />
+          }
         />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
